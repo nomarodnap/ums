@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider     = "postgresql"
+  relationMode = "prisma"
+}
+
+model expense_codes {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique
+  name_th    String
+  created_at DateTime @default(now())
+}
+
+model sessions {
+  id         String   @id
+  user_id    Int
+  expires_at DateTime
+  created_at DateTime @default(now())
+  user       users    @relation(fields: [user_id], references: [id])
+}
+
+model users {
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
+  password_hash String?
+  full_name     String
+  department    String
+  role          String
+  status        String   @default("PENDING_VERIFICATION")
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime
+  sessions      sessions[]
+  verification_tokens verification_tokens[]
+  reset_tokens        reset_tokens[]
+  created_bills  utility_bills[] @relation("CreatedBills")
+  approved_bills utility_bills[] @relation("ApprovedBills")
+}
+
+model utility_bills {
+  id              Int       @id @default(autoincrement())
+  utility_type_id Int
+  billing_year    Int
+  billing_month   Int
+  amount          Float
+  usage           Float
+  location        String
+  reference_no    String
+  note            String?
+  created_by      Int
+  created_at      DateTime  @default(now())
+  updated_at      DateTime
+  status          String
+  approved_by     Int?
+  approved_at     DateTime?
+
+  cost_center         String?
+  document_date       DateTime?
+  document_no         String?
+  document_type       String?
+  gl_code             String?
+  budget_code         String?
+  own_agency          String?
+  proxy_agency        String?
+  meter_no            String?
+  invoice_date        DateTime?
+  receive_date        DateTime?
+  proxy_send_date     DateTime?
+  payer_receive_date  DateTime?
+  has_receipt         Boolean   @default(false)
+  has_direct_pay      Boolean   @default(false)
+  has_ktb             Boolean   @default(false)
+  file_url            String?
+
+  utility_type    utility_types @relation(fields: [utility_type_id], references: [id])
+  creator         users         @relation("CreatedBills", fields: [created_by], references: [id])
+  approver        users?        @relation("ApprovedBills", fields: [approved_by], references: [id])
+}
+
+model utility_types {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique
+  name_th    String
+  name_en    String
+  unit       String
+  icon       String
+  color      String
+  created_at DateTime @default(now())
+  bills      utility_bills[]
+}
+
+model verification_tokens {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  token      String   @unique
+  expires_at DateTime
+  created_at DateTime @default(now())
+  user       users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model reset_tokens {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  token      String   @unique
+  expires_at DateTime
+  created_at DateTime @default(now())
+  user       users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
