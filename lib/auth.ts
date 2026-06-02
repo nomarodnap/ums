@@ -1,4 +1,5 @@
 import "server-only"
+import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import { SignJWT, jwtVerify } from "jose"
 import bcrypt from "bcryptjs"
@@ -62,7 +63,7 @@ export async function createSession(user: Pick<User, "id" | "role">): Promise<vo
   const cookieStore = await cookies()
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" && process.env.NEXT_PUBLIC_APP_URL?.startsWith("https"),
     sameSite: "lax",
     path: "/",
     expires: expiresAt,
@@ -120,7 +121,7 @@ export async function getCurrentUser(): Promise<User | null> {
 export async function requireUser(): Promise<User> {
   const user = await getCurrentUser()
   if (!user) {
-    throw new Error("UNAUTHORIZED")
+    redirect("/login")
   }
   return user
 }
@@ -128,7 +129,7 @@ export async function requireUser(): Promise<User> {
 export async function requireRole(roles: UserRole[]): Promise<User> {
   const user = await requireUser()
   if (!roles.includes(user.role)) {
-    throw new Error("FORBIDDEN")
+    redirect("/dashboard") // Redirect to a safe page if forbidden
   }
   return user
 }

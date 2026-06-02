@@ -6,6 +6,11 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  experimental: {
+    serverActions: {
+      allowedOrigins: ['ums.fisheries.go.th', '*.fisheries.go.th', 'localhost:3001'],
+    },
+  },
 }
 
 export default nextConfig
