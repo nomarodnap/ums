@@ -12,27 +12,63 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { THAI_MONTHS, toBuddhistYear, getFiscalYear } from "@/lib/format"
 import type { UtilityType } from "@/lib/db"
 import { createBillAction, type BillFormState } from "../actions"
-import { AlertCircle, Loader2, Save, UploadCloud } from "lucide-react"
+import type { UtilityBill } from "@/lib/db"
+import { AlertCircle, Loader2, Save, UploadCloud, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import { DatePickerBE } from "@/components/ui/date-picker-be"
+import { AgencyCombobox } from "./agency-combobox"
+
+import type { UserRole } from "@/lib/db"
 
 const initialState: BillFormState = {}
 
-export function BillForm({ types }: { types: UtilityType[] }) {
+export function BillForm({ initialData, userFullName, userRole, agencyUsers }: { initialData?: Partial<UtilityBill>, userFullName?: string, userRole?: UserRole, agencyUsers?: { id: number, full_name: string, department: string }[] }) {
   const [state, formAction, pending] = useActionState(createBillAction, initialState)
+  
+  const isReadOnly = !!initialData && initialData.status !== "RETURNED" && initialData.status !== "PENDING"
 
   const now = new Date()
   const currentYear = getFiscalYear(now)
   const currentMonth = now.getMonth() + 1
   const years = [currentYear + 1, currentYear, currentYear - 1, currentYear - 2]
 
-  const [fileName, setFileName] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [fileNames, setFileNames] = useState<{ receipt: string | null, directPay: string | null, ktb: string | null }>({
+    receipt: null,
+    directPay: null,
+    ktb: null
+  })
+
+  const receiptInputRef = useRef<HTMLInputElement>(null)
+  const directPayInputRef = useRef<HTMLInputElement>(null)
+  const ktbInputRef = useRef<HTMLInputElement>(null)
 
   return (
     <Card className="shadow-sm border-muted-foreground/10 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <CardContent className="p-6 md:p-8">
+        {(initialData?.status === "SUBMITTED" || initialData?.status === "APPROVED") && (
+          <div className="mb-6 p-4 rounded-md bg-emerald-50 border border-emerald-200 flex items-start gap-3 text-emerald-800">
+            <Save className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-semibold text-emerald-900">สถานะ: ส่งข้อมูลเรียบร้อยแล้ว</p>
+              <p className="text-sm mt-1">รายการนี้ถูกส่งเข้าสู่ระบบแล้ว คุณสามารถตรวจสอบข้อมูลที่ส่งไปได้ด้านล่างนี้</p>
+            </div>
+          </div>
+        )}
+        
+        {initialData?.status === "RETURNED" && (
+          <div className="mb-6 p-4 rounded-md bg-amber-50 border border-amber-200 flex items-start gap-3 text-amber-800">
+            <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-semibold text-amber-900">รายการนี้ถูกส่งกลับเพื่อแก้ไข</p>
+              <p className="text-sm mt-1 mb-2">กรุณาแก้ไขข้อมูลตามเหตุผลด้านล่างแล้วกดส่งข้อมูลอีกครั้ง</p>
+              <div className="bg-amber-100/50 p-3 rounded text-sm text-amber-900 border border-amber-200/50">
+                <strong>เหตุผล:</strong> {initialData.reject_reason || "-"}
+              </div>
+            </div>
+          </div>
+        )}
         <form action={formAction}>
+          {initialData?.id && <input type="hidden" name="id" value={initialData.id} />}
           <div className="space-y-8">
             {/* 1. ข้อมูลเอกสารทั่วไป */}
             <FieldSet>
@@ -41,22 +77,23 @@ export function BillForm({ types }: { types: UtilityType[] }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field>
                     <FieldLabel htmlFor="cost_center">ศูนย์ต้นทุน</FieldLabel>
-                    <Input id="cost_center" name="cost_center" placeholder="เช่น 0700500043" />
+                    <Input id="cost_center" name="cost_center" placeholder="เช่น 0700500043" defaultValue={initialData?.cost_center || ""} readOnly={!!initialData} />
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="document_date">วันที่เอกสาร</FieldLabel>
-                    <DatePickerBE id="document_date" name="document_date" />
+                    <DatePickerBE id="document_date" name="document_date" defaultValue={initialData?.document_date ? new Date(initialData.document_date) : null} disabled={!!initialData} />
                   </Field>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field>
                     <FieldLabel htmlFor="document_no">เลขเอกสาร</FieldLabel>
-                    <Input id="document_no" name="document_no" placeholder="เช่น 3100008383" />
+                    <Input id="document_no" name="document_no" placeholder="เช่น 3100008383" defaultValue={initialData?.document_no || ""} readOnly={!!initialData} />
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="document_type">ประเภทเอกสาร</FieldLabel>
-                    <Select name="document_type">
+                    {initialData?.document_type && <input type="hidden" name="document_type" value={initialData.document_type} />}
+                    <Select name={initialData?.document_type ? undefined : "document_type"} defaultValue={initialData?.document_type || undefined} disabled={!!initialData}>
                       <SelectTrigger id="document_type">
                         <SelectValue placeholder="เลือกประเภท" />
                       </SelectTrigger>
@@ -71,7 +108,8 @@ export function BillForm({ types }: { types: UtilityType[] }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field>
                     <FieldLabel htmlFor="gl_code">รหัสแยกประเภท</FieldLabel>
-                    <Select name="gl_code">
+                    {initialData?.gl_code && <input type="hidden" name="gl_code" value={initialData.gl_code} />}
+                    <Select name={initialData?.gl_code ? undefined : "gl_code"} defaultValue={initialData?.gl_code || undefined} disabled={!!initialData}>
                       <SelectTrigger id="gl_code">
                         <SelectValue placeholder="เลือกรหัสแยกประเภท" />
                       </SelectTrigger>
@@ -86,13 +124,13 @@ export function BillForm({ types }: { types: UtilityType[] }) {
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="budget_code">รหัสงบประมาณ</FieldLabel>
-                    <Input id="budget_code" name="budget_code" placeholder="เช่น 07005302001002000000" />
+                    <Input id="budget_code" name="budget_code" placeholder="เช่น 07005302001002000000" defaultValue={initialData?.budget_code || ""} readOnly={!!initialData} />
                   </Field>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field>
-                    <FieldLabel htmlFor="amount">จำนวนเงิน (บาท) *</FieldLabel>
+                  <Field className="sm:col-span-2">
+                    <FieldLabel htmlFor="amount">จำนวนเงิน</FieldLabel>
                     <InputGroup>
                       <InputGroupInput
                         id="amount"
@@ -102,24 +140,11 @@ export function BillForm({ types }: { types: UtilityType[] }) {
                         min="0"
                         required
                         placeholder="0.00"
+                        defaultValue={initialData?.amount || ""}
+                        readOnly={!!initialData}
                       />
                       <InputGroupAddon align="inline-end">บาท</InputGroupAddon>
                     </InputGroup>
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="utility_type_id">ประเภทรายการในระบบ *</FieldLabel>
-                    <Select name="utility_type_id" required>
-                      <SelectTrigger id="utility_type_id">
-                        <SelectValue placeholder="เลือกประเภทระบบ" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {types.map((t) => (
-                          <SelectItem key={t.id} value={String(t.id)}>
-                            {t.name_th}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </Field>
                 </div>
               </FieldGroup>
@@ -132,11 +157,15 @@ export function BillForm({ types }: { types: UtilityType[] }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field>
                     <FieldLabel htmlFor="own_agency">หน่วยงานตนเอง</FieldLabel>
-                    <Input id="own_agency" name="own_agency" placeholder="เช่น ศปท.ชุมพร" />
+                    <Input id="own_agency" name="own_agency" placeholder="เช่น ศปท.ชุมพร" defaultValue={userFullName || initialData?.own_agency || ""} readOnly />
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="proxy_agency">หน่วยงานที่ฝากเบิก</FieldLabel>
-                    <Input id="proxy_agency" name="proxy_agency" placeholder="เช่น นปท.หลังสวน" />
+                    {agencyUsers ? (
+                      <AgencyCombobox name="proxy_agency" defaultValue={initialData?.proxy_agency || ""} users={agencyUsers} />
+                    ) : (
+                      <Input id="proxy_agency" name="proxy_agency" placeholder="เช่น นปท.หลังสวน" defaultValue={initialData?.proxy_agency || ""} />
+                    )}
                   </Field>
                 </div>
               </FieldGroup>
@@ -148,15 +177,16 @@ export function BillForm({ types }: { types: UtilityType[] }) {
               <FieldGroup>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field>
-                    <FieldLabel htmlFor="billing_year">ประจำปีงบประมาณ *</FieldLabel>
-                    <Select name="billing_year" required defaultValue={String(currentYear)}>
-                      <SelectTrigger id="billing_year">
-                        <SelectValue />
+                    <FieldLabel htmlFor="invoice_month">ประจำเดือน</FieldLabel>
+                    <Select name="invoice_month" defaultValue={initialData?.invoice_month ? String(initialData.invoice_month) : (initialData?.billing_month ? String(initialData.billing_month) : "none")} disabled={isReadOnly}>
+                      <SelectTrigger id="invoice_month">
+                        <SelectValue placeholder="ไม่ระบุ" />
                       </SelectTrigger>
                       <SelectContent>
-                        {years.map((y) => (
-                          <SelectItem key={y} value={String(y)}>
-                            {toBuddhistYear(y)} ({y})
+                        <SelectItem value="none">ไม่ระบุ</SelectItem>
+                        {THAI_MONTHS.map((m, i) => (
+                          <SelectItem key={i} value={String(i + 1)}>
+                            {m}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -164,15 +194,16 @@ export function BillForm({ types }: { types: UtilityType[] }) {
                   </Field>
 
                   <Field>
-                    <FieldLabel htmlFor="billing_month">ประจำเดือน *</FieldLabel>
-                    <Select name="billing_month" required defaultValue={String(currentMonth)}>
-                      <SelectTrigger id="billing_month">
-                        <SelectValue />
+                    <FieldLabel htmlFor="invoice_year">ประจำปี</FieldLabel>
+                    <Select name="invoice_year" defaultValue={initialData?.invoice_year ? String(initialData.invoice_year) : (initialData?.billing_year ? String(initialData.billing_year) : "none")} disabled={isReadOnly}>
+                      <SelectTrigger id="invoice_year">
+                        <SelectValue placeholder="ไม่ระบุ" />
                       </SelectTrigger>
                       <SelectContent>
-                        {THAI_MONTHS.map((m, i) => (
-                          <SelectItem key={i} value={String(i + 1)}>
-                            {m}
+                        <SelectItem value="none">ไม่ระบุ</SelectItem>
+                        {years.map((y) => (
+                          <SelectItem key={y} value={String(y)}>
+                            {toBuddhistYear(y)} ({y})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -183,11 +214,11 @@ export function BillForm({ types }: { types: UtilityType[] }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field>
                     <FieldLabel htmlFor="meter_no">เลขมิเตอร์/ผู้ใช้/เบอร์โทร</FieldLabel>
-                    <Input id="meter_no" name="meter_no" placeholder="เช่น 0011020004274691" />
+                    <Input id="meter_no" name="meter_no" placeholder="กรอกเลข/รหัส" defaultValue={initialData?.meter_no || ""} readOnly={isReadOnly} />
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="invoice_date">วันที่ใบแจ้งหนี้</FieldLabel>
-                    <DatePickerBE id="invoice_date" name="invoice_date" />
+                    <DatePickerBE id="invoice_date" name="invoice_date" defaultValue={initialData?.invoice_date ? new Date(initialData.invoice_date) : null} disabled={isReadOnly} />
                   </Field>
                 </div>
               </FieldGroup>
@@ -200,15 +231,15 @@ export function BillForm({ types }: { types: UtilityType[] }) {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <Field>
                     <FieldLabel htmlFor="receive_date">ลงรับใบแจ้งหนี้</FieldLabel>
-                    <DatePickerBE id="receive_date" name="receive_date" />
+                    <DatePickerBE id="receive_date" name="receive_date" defaultValue={initialData?.receive_date ? new Date(initialData.receive_date) : null} disabled={isReadOnly} />
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="proxy_send_date">หน่วยฝากเบิกส่ง</FieldLabel>
-                    <DatePickerBE id="proxy_send_date" name="proxy_send_date" />
+                    <DatePickerBE id="proxy_send_date" name="proxy_send_date" defaultValue={initialData?.proxy_send_date ? new Date(initialData.proxy_send_date) : null} disabled={isReadOnly} />
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="payer_receive_date">หน่วยเบิกจ่ายลงรับ</FieldLabel>
-                    <DatePickerBE id="payer_receive_date" name="payer_receive_date" />
+                    <DatePickerBE id="payer_receive_date" name="payer_receive_date" defaultValue={initialData?.payer_receive_date ? new Date(initialData.payer_receive_date) : null} disabled={isReadOnly} />
                   </Field>
                 </div>
               </FieldGroup>
@@ -216,53 +247,100 @@ export function BillForm({ types }: { types: UtilityType[] }) {
 
             {/* 5. การแนบหลักฐานและเอกสาร */}
             <FieldSet>
-              <FieldLegend>การแนบหลักฐานและเอกสาร</FieldLegend>
+              <FieldLegend>แนบหลักฐานและเอกสารที่มี</FieldLegend>
               <FieldGroup>
-                <div className="flex flex-col sm:flex-row gap-6 mb-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox name="has_receipt" value="true" />
-                    <span className="text-sm font-medium">ใบเสร็จรับเงิน</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox name="has_direct_pay" value="true" />
-                    <span className="text-sm font-medium">รายงานจ่ายตรง</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox name="has_ktb" value="true" />
-                    <span className="text-sm font-medium">รายงาน KTB</span>
-                  </label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                  {/* Receipt Upload */}
+                  <Field>
+                    <FieldLabel>ใบเสร็จรับเงิน</FieldLabel>
+                    <div
+                      className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center group h-40 ${isReadOnly ? 'border-border bg-muted/50 cursor-not-allowed opacity-70' : 'border-primary/20 bg-primary/5 cursor-pointer hover:bg-primary/10 hover:border-primary/40 transition-all duration-300'}`}
+                      onClick={() => !isReadOnly && receiptInputRef.current?.click()}
+                    >
+                      <div className={`p-2 bg-background rounded-full shadow-sm mb-2 ${!isReadOnly && 'group-hover:scale-110 transition-transform duration-300'}`}>
+                        <UploadCloud className={`w-5 h-5 ${isReadOnly ? 'text-muted-foreground' : 'text-primary'}`} />
+                      </div>
+                      <p className="text-xs font-medium mb-1 text-foreground">แนบใบเสร็จรับเงิน</p>
+                      <p className="text-[10px] text-muted-foreground">PDF, JPG, PNG (&lt;5MB)</p>
+                      {fileNames.receipt && (
+                        <div className={`mt-2 py-1 px-2 rounded-full text-[10px] font-medium truncate max-w-full ${isReadOnly ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'}`}>
+                          {fileNames.receipt}
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        name="receipt_file"
+                        id="receipt_file"
+                        className="hidden"
+                        ref={receiptInputRef}
+                        disabled={isReadOnly}
+                        onChange={(e) => setFileNames(prev => ({ ...prev, receipt: e.target.files?.[0]?.name || null }))}
+                      />
+                    </div>
+                  </Field>
+
+                  {/* Direct Pay Upload */}
+                  <Field>
+                    <FieldLabel>รายงานจ่ายตรง</FieldLabel>
+                    <div
+                      className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center group h-40 ${isReadOnly ? 'border-border bg-muted/50 cursor-not-allowed opacity-70' : 'border-primary/20 bg-primary/5 cursor-pointer hover:bg-primary/10 hover:border-primary/40 transition-all duration-300'}`}
+                      onClick={() => !isReadOnly && directPayInputRef.current?.click()}
+                    >
+                      <div className={`p-2 bg-background rounded-full shadow-sm mb-2 ${!isReadOnly && 'group-hover:scale-110 transition-transform duration-300'}`}>
+                        <UploadCloud className={`w-5 h-5 ${isReadOnly ? 'text-muted-foreground' : 'text-primary'}`} />
+                      </div>
+                      <p className="text-xs font-medium mb-1 text-foreground">แนบรายงานจ่ายตรง</p>
+                      <p className="text-[10px] text-muted-foreground">PDF, JPG, PNG (&lt;5MB)</p>
+                      {fileNames.directPay && (
+                        <div className={`mt-2 py-1 px-2 rounded-full text-[10px] font-medium truncate max-w-full ${isReadOnly ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'}`}>
+                          {fileNames.directPay}
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        name="direct_pay_file"
+                        id="direct_pay_file"
+                        className="hidden"
+                        ref={directPayInputRef}
+                        disabled={isReadOnly}
+                        onChange={(e) => setFileNames(prev => ({ ...prev, directPay: e.target.files?.[0]?.name || null }))}
+                      />
+                    </div>
+                  </Field>
+
+                  {/* KTB Upload */}
+                  <Field>
+                    <FieldLabel>รายงาน KTB</FieldLabel>
+                    <div
+                      className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center group h-40 ${isReadOnly ? 'border-border bg-muted/50 cursor-not-allowed opacity-70' : 'border-primary/20 bg-primary/5 cursor-pointer hover:bg-primary/10 hover:border-primary/40 transition-all duration-300'}`}
+                      onClick={() => !isReadOnly && ktbInputRef.current?.click()}
+                    >
+                      <div className={`p-2 bg-background rounded-full shadow-sm mb-2 ${!isReadOnly && 'group-hover:scale-110 transition-transform duration-300'}`}>
+                        <UploadCloud className={`w-5 h-5 ${isReadOnly ? 'text-muted-foreground' : 'text-primary'}`} />
+                      </div>
+                      <p className="text-xs font-medium mb-1 text-foreground">แนบรายงาน KTB</p>
+                      <p className="text-[10px] text-muted-foreground">PDF, JPG, PNG (&lt;5MB)</p>
+                      {fileNames.ktb && (
+                        <div className={`mt-2 py-1 px-2 rounded-full text-[10px] font-medium truncate max-w-full ${isReadOnly ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'}`}>
+                          {fileNames.ktb}
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        name="ktb_file"
+                        id="ktb_file"
+                        className="hidden"
+                        ref={ktbInputRef}
+                        disabled={isReadOnly}
+                        onChange={(e) => setFileNames(prev => ({ ...prev, ktb: e.target.files?.[0]?.name || null }))}
+                      />
+                    </div>
+                  </Field>
                 </div>
 
                 <Field>
-                  <FieldLabel>อัปโหลดเอกสารประกอบ</FieldLabel>
-                  <div 
-                    className="border-2 border-dashed border-primary/20 bg-primary/5 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-primary/10 hover:border-primary/40 transition-all duration-300 group"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <div className="p-3 bg-background rounded-full shadow-sm mb-3 group-hover:scale-110 transition-transform duration-300">
-                      <UploadCloud className="w-6 h-6 text-primary" />
-                    </div>
-                    <p className="text-sm font-medium mb-1 text-foreground">คลิกเพื่ออัปโหลด หรือลากไฟล์มาวางที่นี่</p>
-                    <p className="text-xs text-muted-foreground">รองรับไฟล์ PDF, JPG, PNG (ไม่เกิน 5MB)</p>
-                    {fileName && (
-                      <div className="mt-3 py-1 px-3 bg-primary/10 text-primary rounded-full text-sm font-medium">
-                        {fileName}
-                      </div>
-                    )}
-                    <input 
-                      type="file" 
-                      name="file" 
-                      id="file" 
-                      className="hidden" 
-                      ref={fileInputRef}
-                      onChange={(e) => setFileName(e.target.files?.[0]?.name || null)}
-                    />
-                  </div>
-                </Field>
-
-                <Field>
                   <FieldLabel htmlFor="note">หมายเหตุ</FieldLabel>
-                  <Textarea id="note" name="note" rows={2} placeholder="เช่น จ่ายเช็ค" />
+                  <Textarea id="note" name="note" rows={2} placeholder="เช่น จ่ายเช็ค" defaultValue={initialData?.note || ""} disabled={isReadOnly} />
                 </Field>
               </FieldGroup>
             </FieldSet>
@@ -280,21 +358,23 @@ export function BillForm({ types }: { types: UtilityType[] }) {
 
           <div className="mt-8 flex items-center justify-end gap-3 pt-4 border-t">
             <Button variant="outline" type="button" asChild>
-              <Link href="/reports">ยกเลิก</Link>
+              <Link href="/reports">ย้อนกลับ</Link>
             </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden />
-                  กำลังบันทึก...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" aria-hidden />
-                  บันทึกรายการ
-                </>
-              )}
-            </Button>
+            {!isReadOnly && (
+              <Button type="submit" disabled={pending}>
+                {pending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden />
+                    กำลังบันทึก...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" aria-hidden />
+                    ส่งข้อมูล
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </form>
       </CardContent>

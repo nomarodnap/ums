@@ -29,7 +29,7 @@ export default async function ReportsPage({
   const [types, years, { bills, total }] = await Promise.all([
     getUtilityTypes(),
     getAvailableYears(),
-    getBills({ year, month, typeCode, search, limit, offset }),
+    getBills({ year, month, typeCode, search, limit, offset, costCenter: user.cost_center }),
   ])
 
   const totalAmount = bills.reduce((acc, b) => acc + Number.parseFloat(b.amount), 0)
@@ -39,16 +39,6 @@ export default async function ReportsPage({
     <>
       <AppHeader
         crumbs={[{ label: "ระบบรายงานค่าสาธารณูปโภค", href: "/dashboard" }, { label: "รายงานค่าสาธารณูปโภค" }]}
-        action={
-          canCreate ? (
-            <Button asChild size="sm">
-              <Link href="/reports/new">
-                <Plus className="w-4 h-4 mr-1.5" aria-hidden />
-                บันทึกรายการใหม่
-              </Link>
-            </Button>
-          ) : null
-        }
       />
       <div className="flex flex-col gap-5 p-4 md:p-6">
         <div>
@@ -83,7 +73,7 @@ export default async function ReportsPage({
           </Card>
         </div>
 
-        <BillsTable bills={bills} role={user.role} />
+        <BillsTable bills={bills} role={user.role} types={types} />
 
         {total > limit && <Pagination page={page} total={total} limit={limit} sp={sp} />}
       </div>

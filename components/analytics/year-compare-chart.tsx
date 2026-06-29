@@ -25,14 +25,14 @@ export function YearCompareChart({
   year: number
   prevYear: number
 }) {
-  const data = Array.from({ length: 12 }, (_, i) => {
-    const m = i + 1
+  const data = currentData.map((d, i) => {
     return {
-      month: THAI_MONTHS_SHORT[i],
-      current: sumMonth(currentData[i] || ({ month: m } as MonthlySeries)),
-      previous: sumMonth(prevData[i] || ({ month: m } as MonthlySeries)),
+      month: THAI_MONTHS_SHORT[d.month - 1],
+      current: sumMonth(d),
+      previous: sumMonth(prevData[i] || { month: d.month }),
     }
   })
+
 
   const config: ChartConfig = {
     current: { label: `ปี ${toBuddhistYear(year)}`, color: "var(--chart-1)" },

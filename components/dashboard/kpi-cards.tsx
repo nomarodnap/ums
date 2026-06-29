@@ -15,9 +15,8 @@ function ChangeBadge({ value }: { value: number | null }) {
   const Icon = up ? ArrowUpRight : ArrowDownRight
   return (
     <span
-      className={`inline-flex items-center gap-1 text-xs font-medium rounded-md px-1.5 py-0.5 ${
-        up ? "bg-destructive/10 text-destructive" : "bg-chart-2/20 text-chart-2"
-      }`}
+      className={`inline-flex items-center gap-1 text-xs font-medium rounded-md px-1.5 py-0.5 ${up ? "bg-destructive/10 text-destructive" : "bg-chart-2/20 text-chart-2"
+        }`}
     >
       <Icon className="w-3 h-3" aria-hidden />
       {Math.abs(value).toFixed(1)}%
@@ -38,15 +37,15 @@ export function KpiCards({ summary }: { summary: DashboardSummary }) {
       icon: Wallet,
     },
     {
-      label: `ยอดรวมปี ${toBuddhistYear(summary.currentYear)}`,
-      sub: `เทียบกับปี ${toBuddhistYear(summary.currentYear - 1)}`,
+      label: `ยอดรวมปีงบประมาณ ${toBuddhistYear(summary.currentYear)}`,
+      sub: `เทียบกับปีงบประมาณ ${toBuddhistYear(summary.currentYear - 1)}`,
       value: formatTHB(summary.yearTotal),
       change: yearChange,
       icon: TrendingUp,
     },
     {
-      label: "ยอดปีก่อนหน้า",
-      sub: `ปี ${toBuddhistYear(summary.currentYear - 1)}`,
+      label: "ยอดปีงบประมาณก่อนหน้า",
+      sub: `ปีงบประมาณ ${toBuddhistYear(summary.currentYear - 1)}`,
       value: formatTHB(summary.lastYearTotal),
       change: null,
       icon: Calendar,

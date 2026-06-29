@@ -16,7 +16,7 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar"
-import { BarChart3, ClipboardCheck, FileText, LayoutDashboard, Users } from "lucide-react"
+import { BarChart3, ClipboardCheck, FileText, LayoutDashboard, Users, FileUp } from "lucide-react"
 import type { User, UserRole } from "@/lib/db"
 import { roleLabel } from "@/lib/format"
 import { UserMenu } from "./user-menu"
@@ -33,6 +33,7 @@ const nav: NavItem[] = [
   { href: "/reports", label: "รายงานค่าสาธารณูปโภค", icon: FileText, roles: ["ADMIN", "STAFF", "USER"] },
   { href: "/analytics", label: "วิเคราะห์ข้อมูล", icon: BarChart3, roles: ["ADMIN", "STAFF", "USER"] },
   { href: "/status", label: "ตรวจสอบสถานะรายงาน", icon: ClipboardCheck, roles: ["ADMIN"] },
+  { href: "/import", label: "นำเข้าข้อมูล Excel", icon: FileUp, roles: ["ADMIN", "STAFF"] },
   { href: "/users", label: "จัดการผู้ใช้งาน", icon: Users, roles: ["ADMIN"] },
 ]
 
@@ -42,7 +43,7 @@ export function AppSidebar({ user }: { user: User }) {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-3">
+        <div className="flex items-center gap-2 px-2 py-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
           <div className="flex items-center justify-center w-10 h-10 shrink-0">
             <Image src="/logo.png" alt="กรมประมง" width={40} height={40} className="object-contain" priority />
           </div>

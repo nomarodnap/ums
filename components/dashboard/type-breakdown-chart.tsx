@@ -25,7 +25,7 @@ export function TypeBreakdownChart({ data, year }: { data: TypeBreakdown[]; year
       <CardHeader>
         <CardTitle>สัดส่วนค่าใช้จ่ายตามประเภท</CardTitle>
         <CardDescription>
-          {year ? `ยอดรวมปี ${toBuddhistYear(year)}` : 'ข้อมูลวิเคราะห์ 12 เดือนย้อนหลัง'}
+          {year ? `ยอดรวมปีงบประมาณ ${toBuddhistYear(year)}` : 'ข้อมูลวิเคราะห์ 12 เดือนย้อนหลัง'}
         </CardDescription>
       </CardHeader>
       <CardContent>

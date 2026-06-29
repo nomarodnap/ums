@@ -18,6 +18,7 @@ export async function createUserAction(_prev: UserFormState, formData: FormData)
   const email = String(formData.get("email") || "").trim().toLowerCase()
   const fullName = String(formData.get("full_name") || "").trim()
   const department = String(formData.get("department") || "").trim() || ""
+  const costCenter = String(formData.get("cost_center") || "").trim() || null
   const role = String(formData.get("role") || "USER")
 
   if (!email || !fullName) {
@@ -40,6 +41,7 @@ export async function createUserAction(_prev: UserFormState, formData: FormData)
         email,
         full_name: fullName,
         department,
+        cost_center: costCenter,
         role,
         status: "PENDING_VERIFICATION",
         updated_at: new Date()

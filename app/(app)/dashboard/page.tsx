@@ -33,16 +33,6 @@ export default async function DashboardPage() {
     <>
       <AppHeader
         crumbs={[{ label: "ระบบรายงานค่าสาธารณูปโภค", href: "/dashboard" }, { label: "หน้าหลัก" }]}
-        action={
-          canCreate ? (
-            <Button asChild size="sm">
-              <Link href="/reports/new">
-                <Plus className="w-4 h-4 mr-1.5" aria-hidden />
-                บันทึกรายการใหม่
-              </Link>
-            </Button>
-          ) : null
-        }
       />
       <div className="flex flex-col gap-6 p-6 md:p-8 max-w-7xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div>

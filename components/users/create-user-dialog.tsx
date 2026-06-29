@@ -39,16 +39,20 @@ export function CreateUserDialog() {
         <form action={action}>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="full_name">อักษรย่อหน่วยงาน</FieldLabel>
-              <Input id="full_name" name="full_name" required placeholder="เช่น สพท." />
+              <FieldLabel htmlFor="full_name">หน่วยงานเต็ม</FieldLabel>
+              <Input id="full_name" name="full_name" required placeholder="เช่น กลุ่มพัฒนาระบบบริหาร" />
             </Field>
             <Field>
               <FieldLabel htmlFor="email">อีเมล</FieldLabel>
-              <Input id="email" name="email" type="email" required placeholder="name@fisheries.go.th" />
+              <Input id="email" name="email" type="email" required placeholder="xxx@fisheries.go.th" />
             </Field>
             <Field>
-              <FieldLabel htmlFor="department">ชื่อหน่วยงานเต็ม</FieldLabel>
-              <Input id="department" name="department" placeholder="ไม่บังคับ" />
+              <FieldLabel htmlFor="department">อักษรย่อหน่วยงาน</FieldLabel>
+              <Input id="department" name="department" placeholder="เช่น กพร." />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="cost_center">รหัสศูนย์ต้นทุน</FieldLabel>
+              <Input id="cost_center" name="cost_center" placeholder="เช่น 0700500001" />
             </Field>
             <Field>
               <FieldLabel htmlFor="role">บทบาท</FieldLabel>

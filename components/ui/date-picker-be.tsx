@@ -16,12 +16,16 @@ import {
 
 export function DatePickerBE({ 
   name, 
-  id 
+  id,
+  defaultValue,
+  disabled
 }: { 
   name: string
   id?: string 
+  defaultValue?: Date | null
+  disabled?: boolean
 }) {
-  const [date, setDate] = React.useState<Date>()
+  const [date, setDate] = React.useState<Date | undefined>(defaultValue || undefined)
 
   return (
     <>
@@ -33,8 +37,9 @@ export function DatePickerBE({
             variant={"outline"}
             className={cn(
               "w-full justify-start text-left font-normal",
-              !date && "text-muted-foreground"
+              disabled ? "opacity-70 cursor-not-allowed bg-muted" : "bg-white"
             )}
+            disabled={disabled}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {date ? (

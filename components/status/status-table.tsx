@@ -24,21 +24,22 @@ import { approveBillAction, revertBillAction } from "@/app/(app)/status/actions"
 
 interface StatusTableProps {
   data: MonthlyReportStatus[]
-  year: number
+  year: number | "all"
 }
 
 export function StatusTable({ data, year }: StatusTableProps) {
   const [pending, startTransition] = useTransition()
   const [processingId, setProcessingId] = useState<number | null>(null)
 
-  // Group by month
-  const groupedByMonth = data.reduce((acc, item) => {
-    if (!acc[item.billing_month]) {
-      acc[item.billing_month] = []
+  // Group by month and year if 'all' is selected, or just month
+  const groupedByPeriod = data.reduce((acc, item) => {
+    const key = year === "all" ? `${item.billing_year}-${item.billing_month}` : item.billing_month.toString()
+    if (!acc[key]) {
+      acc[key] = { month: item.billing_month, year: item.billing_year, items: [] }
     }
-    acc[item.billing_month].push(item)
+    acc[key].items.push(item)
     return acc
-  }, {} as Record<number, MonthlyReportStatus[]>)
+  }, {} as Record<string, { month: number, year: number, items: MonthlyReportStatus[] }>)
 
   const handleApprove = (billId: number) => {
     setProcessingId(billId)
@@ -84,24 +85,28 @@ export function StatusTable({ data, year }: StatusTableProps) {
   return (
     <TooltipProvider>
       <div className="space-y-8">
-        {Object.entries(groupedByMonth)
-          .sort(([a], [b]) => {
-            const indexA = FISCAL_MONTHS.indexOf(Number(a))
-            const indexB = FISCAL_MONTHS.indexOf(Number(b))
+        {Object.entries(groupedByPeriod)
+          .sort(([, a], [, b]) => {
+            if (year === "all") {
+              if (a.year !== b.year) return b.year - a.year
+            }
+            const indexA = FISCAL_MONTHS.indexOf(a.month)
+            const indexB = FISCAL_MONTHS.indexOf(b.month)
             return indexA - indexB
           })
-          .map(([month, items]) => {
-            const monthNum = Number(month)
+          .map(([key, { month: monthNum, year: itemYear, items }]) => {
             const submittedCount = items.filter((i) => i.bill_id).length
             const approvedCount = items.filter((i) => i.status === "APPROVED").length
             const totalCount = items.length
+            
+            const displayYear = getCalendarYearFromFiscal(itemYear, monthNum)
 
             return (
-              <div key={month} className="rounded-lg border bg-card">
+              <div key={key} className="rounded-lg border bg-card">
                 <div className="flex items-center justify-between border-b px-4 py-3">
                   <div>
                     <h3 className="font-semibold text-lg">
-                      {monthName(monthNum)} {toBuddhistYear(getCalendarYearFromFiscal(year, monthNum))}
+                      {monthName(monthNum)} {toBuddhistYear(displayYear)}
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       รายงานแล้ว {submittedCount}/{totalCount} รายการ | 

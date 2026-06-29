@@ -19,6 +19,30 @@ export async function getUtilityTypes(): Promise<UtilityType[]> {
   }))
 }
 
+export async function getAgencyUsers() {
+  const users = await prisma.users.findMany({
+    select: {
+      id: true,
+      full_name: true,
+      department: true
+    },
+    orderBy: { full_name: 'asc' }
+  })
+  return users
+}
+
+export async function getAvailableYears(): Promise<number[]> {
+  const rows = await prisma.$queryRaw<any[]>`
+    SELECT DISTINCT 
+      CASE WHEN EXTRACT(MONTH FROM document_date) >= 10 THEN EXTRACT(YEAR FROM document_date) + 1 
+           ELSE EXTRACT(YEAR FROM document_date) END::int as y
+    FROM utility_bills
+    WHERE document_date IS NOT NULL
+    ORDER BY y DESC
+  `
+  return rows.map(r => r.y).filter(Boolean)
+}
+
 export interface DashboardSummary {
   currentMonthTotal: number
   previousMonthTotal: number
@@ -31,12 +55,22 @@ export interface DashboardSummary {
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   const now = new Date()
-  const currentYear = getFiscalYear(now)
-  const currentMonth = now.getMonth() + 1
-
-  const maxRows = await prisma.$queryRaw<any[]>`SELECT MAX(billing_year) AS y FROM utility_bills`
-  const dataYear = (maxRows[0]?.y as number) || currentYear
-  const dataMonth = dataYear === currentYear ? currentMonth : 9 // 9 is September, end of fiscal year
+  const targetDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const targetFiscalYear = getFiscalYear(targetDate)
+  const targetMonth = targetDate.getMonth() + 1
+  
+  const maxRows = await prisma.$queryRaw<any[]>`
+    SELECT 
+      CASE WHEN EXTRACT(MONTH FROM document_date) >= 10 THEN EXTRACT(YEAR FROM document_date) + 1 
+           ELSE EXTRACT(YEAR FROM document_date) END::int as y
+    FROM utility_bills 
+    WHERE document_date IS NOT NULL 
+    ORDER BY document_date DESC 
+    LIMIT 1
+  `
+  
+  const dataYear = (maxRows[0]?.y as number) || targetFiscalYear
+  const dataMonth = dataYear === targetFiscalYear ? targetMonth : 9  // 9 is September, end of fiscal year
 
   let prevMonth = dataMonth - 1
   let prevMonthYear = dataYear
@@ -48,14 +82,27 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     prevMonth = 12
   }
 
+  const currentMonthStart = new Date(dataYear - (dataMonth >= 10 ? 1 : 0), dataMonth - 1, 1)
+  const currentMonthEnd = new Date(dataYear - (dataMonth >= 10 ? 1 : 0), dataMonth, 0)
+  
+  const prevMonthStart = new Date(prevMonthYear - (prevMonth >= 10 ? 1 : 0), prevMonth - 1, 1)
+  const prevMonthEnd = new Date(prevMonthYear - (prevMonth >= 10 ? 1 : 0), prevMonth, 0)
+
+  const currentYearStart = new Date(dataYear - 1, 9, 1)
+  const currentYearEnd = new Date(dataYear, 9, 0)
+
+  const lastYearStart = new Date(dataYear - 2, 9, 1)
+  const lastYearEnd = new Date(dataYear - 1, 9, 0)
+
   const rows = await prisma.$queryRaw<any[]>`
     SELECT
-      COALESCE(SUM(CASE WHEN billing_year = ${dataYear} AND billing_month = ${dataMonth} THEN amount END), 0)::float AS current_month_total,
-      COALESCE(SUM(CASE WHEN billing_year = ${prevMonthYear} AND billing_month = ${prevMonth} THEN amount END), 0)::float AS previous_month_total,
-      COALESCE(SUM(CASE WHEN billing_year = ${dataYear} THEN amount END), 0)::float AS year_total,
-      COALESCE(SUM(CASE WHEN billing_year = ${dataYear - 1} THEN amount END), 0)::float AS last_year_total,
+      COALESCE(SUM(CASE WHEN document_date >= ${currentMonthStart} AND document_date <= ${currentMonthEnd} THEN amount END), 0)::float AS current_month_total,
+      COALESCE(SUM(CASE WHEN document_date >= ${prevMonthStart} AND document_date <= ${prevMonthEnd} THEN amount END), 0)::float AS previous_month_total,
+      COALESCE(SUM(CASE WHEN document_date >= ${currentYearStart} AND document_date <= ${currentYearEnd} THEN amount END), 0)::float AS year_total,
+      COALESCE(SUM(CASE WHEN document_date >= ${lastYearStart} AND document_date <= ${lastYearEnd} THEN amount END), 0)::float AS last_year_total,
       COUNT(*)::int AS bill_count
     FROM utility_bills
+    WHERE document_date IS NOT NULL
   `
 
   const r = rows[0]
@@ -76,24 +123,29 @@ export interface MonthlySeries {
 }
 
 export async function getMonthlyByType(year: number): Promise<MonthlySeries[]> {
-  const rows = await prisma.$queryRaw<any[]>`
-    SELECT b.billing_month AS month, t.code, SUM(b.amount)::float AS total
-    FROM utility_bills b
-    JOIN utility_types t ON t.id = b.utility_type_id
-    WHERE b.billing_year = ${year}
-    GROUP BY b.billing_month, t.code
-    ORDER BY b.billing_month ASC
-  `
+  const startDate = new Date(year - 1, 9, 1)
+  const endDate = new Date(year, 9, 0)
 
-  const map = new Map<number, MonthlySeries>()
-  for (const m of FISCAL_MONTHS) {
-    map.set(m, { month: m })
-  }
+  const rows = await prisma.$queryRaw<any[]>`
+    SELECT 
+      EXTRACT(MONTH FROM b.document_date)::int as cal_month,
+      b.gl_code as code,
+      SUM(b.amount)::float as total
+    FROM utility_bills b
+    WHERE b.document_date >= ${startDate} AND b.document_date <= ${endDate} AND b.gl_code IS NOT NULL
+    GROUP BY EXTRACT(MONTH FROM b.document_date), b.gl_code
+  `
+  // Use fiscal months order: Oct, Nov, Dec, Jan, ..., Sep
+  const fiscalMonths = [10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  const series: MonthlySeries[] = fiscalMonths.map(m => ({ month: m }))
+  
   for (const row of rows) {
-    const entry = map.get(row.month)!
-    entry[row.code] = row.total
+    const idx = series.findIndex(s => s.month === row.cal_month)
+    if (idx !== -1 && row.code) {
+      series[idx][row.code] = row.total || 0
+    }
   }
-  return Array.from(map.values())
+  return series
 }
 
 export interface TypeBreakdown {
@@ -103,21 +155,32 @@ export interface TypeBreakdown {
 }
 
 export async function getTypeBreakdown(year: number): Promise<TypeBreakdown[]> {
+  const startDate = new Date(year - 1, 9, 1)
+  const endDate = new Date(year, 9, 0)
+
   const rows = await prisma.$queryRaw<any[]>`
-    SELECT t.code, t.name_th, SUM(b.amount)::float AS total
+    SELECT 
+      t.code,
+      t.name_th,
+      SUM(b.amount)::float as total
     FROM utility_bills b
-    JOIN utility_types t ON t.id = b.utility_type_id
-    WHERE b.billing_year = ${year}
-    GROUP BY t.id, t.code, t.name_th
+    JOIN utility_types t ON b.gl_code = t.code
+    WHERE b.document_date >= ${startDate} AND b.document_date <= ${endDate} AND b.gl_code IS NOT NULL
+    GROUP BY t.code, t.name_th
     ORDER BY total DESC
   `
-  return rows as TypeBreakdown[]
+  return rows.map(r => ({
+    code: r.code,
+    name_th: r.name_th,
+    total: r.total || 0
+  }))
 }
 
 export async function getLatestReportMonth(): Promise<{ year: number; month: number } | null> {
   const maxRow = await prisma.$queryRaw<any[]>`
     SELECT billing_year, billing_month 
     FROM utility_bills 
+    WHERE billing_year IS NOT NULL AND billing_month IS NOT NULL
     ORDER BY 
       CASE WHEN billing_month >= 10 THEN billing_year - 1 ELSE billing_year END DESC, 
       billing_month DESC 
@@ -134,108 +197,82 @@ export interface MonthlyRollingSeries {
 }
 
 export async function getRolling12MonthsByType(): Promise<MonthlyRollingSeries[]> {
-  const latest = await getLatestReportMonth()
-  if (!latest) return []
+  const now = new Date()
+  const startDate = new Date(now.getFullYear(), now.getMonth() - 12, 1)
+  const endDate = new Date(now.getFullYear(), now.getMonth(), 0)
 
-  const slots: { year: number, month: number }[] = []
-  let cy = latest.year
-  let cm = latest.month
+  const months: { year: number; month: number }[] = []
+  let calYear = startDate.getFullYear()
+  let calMonth = startDate.getMonth() + 1
   for (let i = 0; i < 12; i++) {
-    slots.unshift({ year: cy, month: cm })
-    if (cm === 10) {
-      cy = cy - 1
-      cm = 9
-    } else if (cm === 1) {
-      cm = 12
-    } else {
-      cm = cm - 1
+    const fiscalYear = calMonth >= 10 ? calYear + 1 : calYear
+    months.push({ year: fiscalYear, month: calMonth })
+    calMonth++
+    if (calMonth > 12) {
+      calMonth = 1
+      calYear++
     }
   }
 
-  const types = await prisma.utility_types.findMany()
+  const rows = await prisma.$queryRaw<any[]>`
+    SELECT 
+      EXTRACT(YEAR FROM b.document_date)::int as cal_year,
+      EXTRACT(MONTH FROM b.document_date)::int as cal_month,
+      b.gl_code as code,
+      SUM(b.amount)::float as total
+    FROM utility_bills b
+    WHERE b.gl_code IS NOT NULL
+      AND b.document_date >= ${startDate}
+      AND b.document_date <= ${endDate}
+    GROUP BY EXTRACT(YEAR FROM b.document_date), EXTRACT(MONTH FROM b.document_date), b.gl_code
+  `
 
-  const grouped = await prisma.utility_bills.groupBy({
-    by: ['billing_year', 'billing_month', 'utility_type_id'],
-    _sum: { amount: true },
-    where: {
-      OR: slots.map(s => ({ billing_year: s.year, billing_month: s.month }))
-    }
-  })
+  const series: MonthlyRollingSeries[] = months.map(m => ({
+    month: m.month,
+    year: m.year,
+  }))
 
-  const map = new Map<string, MonthlyRollingSeries>()
-  for (const s of slots) {
-    const key = `${s.year}-${s.month}`
-    map.set(key, { month: s.month, year: s.year })
-  }
-  
-  for (const row of grouped) {
-    const key = `${row.billing_year}-${row.billing_month}`
-    const entry = map.get(key)
-    if (entry && row._sum.amount !== null) {
-      const type = types.find(t => t.id === row.utility_type_id)
-      if (type) {
-        entry[type.code] = row._sum.amount
-      }
+  for (const row of rows) {
+    const rowFiscalYear = row.cal_month >= 10 ? row.cal_year + 1 : row.cal_year
+    const idx = series.findIndex(s => s.year === rowFiscalYear && s.month === row.cal_month)
+    if (idx !== -1 && row.code) {
+      series[idx][row.code] = row.total || 0
     }
   }
-  
-  return Array.from(map.values())
+
+  return series
 }
 
 export async function getRolling12MonthsBreakdown(): Promise<TypeBreakdown[]> {
-  const latest = await getLatestReportMonth()
-  if (!latest) return []
+  const now = new Date()
+  const startDate = new Date(now.getFullYear(), now.getMonth() - 12, 1)
+  const endDate = new Date(now.getFullYear(), now.getMonth(), 0)
 
-  const slots: { year: number, month: number }[] = []
-  let cy = latest.year
-  let cm = latest.month
-  for (let i = 0; i < 12; i++) {
-    slots.unshift({ year: cy, month: cm })
-    if (cm === 10) {
-      cy = cy - 1
-      cm = 9
-    } else if (cm === 1) {
-      cm = 12
-    } else {
-      cm = cm - 1
-    }
-  }
+  const rows = await prisma.$queryRaw<any[]>`
+    SELECT 
+      t.code,
+      t.name_th,
+      SUM(b.amount)::float as total
+    FROM utility_bills b
+    JOIN utility_types t ON b.gl_code = t.code
+    WHERE b.document_date >= ${startDate} AND b.document_date <= ${endDate} AND b.gl_code IS NOT NULL
+    GROUP BY t.code, t.name_th
+    ORDER BY total DESC
+  `
 
-  const types = await prisma.utility_types.findMany()
-
-  const grouped = await prisma.utility_bills.groupBy({
-    by: ['utility_type_id'],
-    _sum: { amount: true },
-    where: {
-      OR: slots.map(s => ({ billing_year: s.year, billing_month: s.month }))
-    }
-  })
-
-  const results: TypeBreakdown[] = []
-  for (const row of grouped) {
-    const type = types.find(t => t.id === row.utility_type_id)
-    if (type && row._sum.amount !== null) {
-      results.push({
-        code: type.code,
-        name_th: type.name_th,
-        total: row._sum.amount
-      })
-    }
-  }
-  
-  results.sort((a, b) => b.total - a.total)
-  return results
+  return rows.map(r => ({
+    code: r.code,
+    name_th: r.name_th,
+    total: r.total || 0
+  }))
 }
 
 function mapBill(b: any): UtilityBill {
   return {
     id: b.id,
-    utility_type_id: b.utility_type_id,
     billing_year: b.billing_year,
     billing_month: b.billing_month,
     amount: b.amount.toString(),
-    usage: b.usage?.toString() || null,
-    location: b.location,
     reference_no: b.reference_no,
     note: b.note,
     created_by: b.created_by,
@@ -254,6 +291,8 @@ function mapBill(b: any): UtilityBill {
     proxy_agency: b.proxy_agency,
     meter_no: b.meter_no,
     invoice_date: b.invoice_date?.toISOString() || null,
+    invoice_year: b.invoice_year,
+    invoice_month: b.invoice_month,
     receive_date: b.receive_date?.toISOString() || null,
     proxy_send_date: b.proxy_send_date?.toISOString() || null,
     payer_receive_date: b.payer_receive_date?.toISOString() || null,
@@ -261,9 +300,10 @@ function mapBill(b: any): UtilityBill {
     has_direct_pay: b.has_direct_pay,
     has_ktb: b.has_ktb,
     file_url: b.file_url,
-    utility_code: b.utility_type?.code,
-    utility_name_th: b.utility_type?.name_th,
-    utility_unit: b.utility_type?.unit,
+    receipt_file_url: b.receipt_file_url,
+    direct_pay_file_url: b.direct_pay_file_url,
+    ktb_file_url: b.ktb_file_url,
+    reject_reason: b.reject_reason,
     creator_name: b.creator?.full_name,
     approver_name: b.approver?.full_name,
   }
@@ -274,7 +314,6 @@ export async function getRecentBills(limit = 5): Promise<UtilityBill[]> {
     orderBy: { created_at: 'desc' },
     take: limit,
     include: {
-      utility_type: true,
       creator: true
     }
   })
@@ -288,22 +327,50 @@ export interface BillsFilters {
   search?: string
   limit?: number
   offset?: number
+  costCenter?: string | null
+  status?: string | null
 }
 
 export async function getBills(filters: BillsFilters = {}): Promise<{ bills: UtilityBill[]; total: number }> {
-  const { year, month, typeCode, search, limit = 50, offset = 0 } = filters
+  const { year, month, typeCode, search, limit = 50, offset = 0, costCenter, status } = filters
 
   const where: Prisma.utility_billsWhereInput = {}
-  if (year) where.billing_year = year
-  if (month) where.billing_month = month
-  if (typeCode) where.utility_type = { code: typeCode }
+  const andConditions: Prisma.utility_billsWhereInput[] = []
+
+  if (typeof costCenter === 'string') {
+    andConditions.push({ cost_center: costCenter })
+  }
+  
+  if (status) {
+    andConditions.push({ status })
+  }
+
+  if (year) {
+    andConditions.push({ billing_year: year })
+  }
+
+  if (month) {
+    andConditions.push({ billing_month: month })
+  }
+  
+  if (typeCode) {
+    andConditions.push({ gl_code: typeCode })
+  }
   
   if (search) {
-    where.OR = [
-      { reference_no: { contains: search, mode: 'insensitive' } },
-      { location: { contains: search, mode: 'insensitive' } },
-      { note: { contains: search, mode: 'insensitive' } },
-    ]
+    andConditions.push({
+      OR: [
+        { reference_no: { contains: search, mode: 'insensitive' } },
+        { note: { contains: search, mode: 'insensitive' } },
+        { own_agency: { contains: search, mode: 'insensitive' } },
+        { proxy_agency: { contains: search, mode: 'insensitive' } },
+        { cost_center: { contains: search, mode: 'insensitive' } },
+      ]
+    })
+  }
+  
+  if (andConditions.length > 0) {
+    where.AND = andConditions
   }
 
   const [total, bills] = await prisma.$transaction([
@@ -318,7 +385,6 @@ export async function getBills(filters: BillsFilters = {}): Promise<{ bills: Uti
       take: limit,
       skip: offset,
       include: {
-        utility_type: true,
         creator: true
       }
     })
@@ -334,7 +400,6 @@ export async function getBillById(id: number): Promise<UtilityBill | null> {
   const bill = await prisma.utility_bills.findUnique({
     where: { id },
     include: {
-      utility_type: true,
       creator: true
     }
   })
@@ -342,13 +407,6 @@ export async function getBillById(id: number): Promise<UtilityBill | null> {
   return mapBill(bill)
 }
 
-export async function getAvailableYears(): Promise<number[]> {
-  const grouped = await prisma.utility_bills.groupBy({
-    by: ['billing_year'],
-    orderBy: { billing_year: 'desc' }
-  })
-  return grouped.map(g => g.billing_year)
-}
 
 export async function getAllUsers(): Promise<User[]> {
   const users = await prisma.users.findMany({
@@ -362,6 +420,7 @@ export async function getAllUsers(): Promise<User[]> {
     email: u.email,
     full_name: u.full_name,
     department: u.department,
+    cost_center: u.cost_center,
     role: u.role as UserRole,
     is_active: u.is_active,
     created_at: u.created_at.toISOString(),
@@ -389,54 +448,44 @@ export interface MonthlyReportStatus {
 }
 
 export async function getMonthlyReportStatuses(year: number): Promise<MonthlyReportStatus[]> {
-  const rows = await prisma.$queryRaw<any[]>`
-    WITH months AS (
-      SELECT unnest(ARRAY[10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9]) AS month
-    ),
-    report_slots AS (
-      SELECT m.month AS billing_month, ${year}::int AS billing_year, t.id AS utility_type_id, t.code AS utility_code, t.name_th AS utility_name_th
-      FROM months m
-      CROSS JOIN utility_types t
-    )
-    SELECT 
-      rs.billing_year,
-      rs.billing_month,
-      rs.utility_type_id,
-      rs.utility_code,
-      rs.utility_name_th,
-      b.id AS bill_id,
-      b.status,
-      b.amount::text,
-      b.created_by,
-      u_creator.full_name AS creator_name,
-      b.approved_by,
-      u_approver.full_name AS approver_name,
-      b.approved_at,
-      b.created_at
-    FROM report_slots rs
-    LEFT JOIN utility_bills b ON b.billing_year = rs.billing_year 
-      AND b.billing_month = rs.billing_month 
-      AND b.utility_type_id = rs.utility_type_id
-    LEFT JOIN users u_creator ON u_creator.id = b.created_by
-    LEFT JOIN users u_approver ON u_approver.id = b.approved_by
-    ORDER BY CASE WHEN rs.billing_month >= 10 THEN 0 ELSE 1 END, rs.billing_month ASC, rs.utility_code ASC
-  `
-  return rows.map(row => ({
-    billing_year: row.billing_year,
-    billing_month: row.billing_month,
-    utility_type_id: row.utility_type_id,
-    utility_code: row.utility_code,
-    utility_name_th: row.utility_name_th,
-    bill_id: row.bill_id || null,
-    status: (row.status as BillStatus) || null,
-    amount: row.amount || null,
-    created_by: row.created_by || null,
-    creator_name: row.creator_name || null,
-    approved_by: row.approved_by || null,
-    approver_name: row.approver_name || null,
-    approved_at: row.approved_at ? new Date(row.approved_at).toISOString() : null,
-    created_at: row.created_at ? new Date(row.created_at).toISOString() : null,
-  }))
+  const types = await prisma.utility_types.findMany({
+    orderBy: { id: 'asc' }
+  })
+  
+  const bills = await prisma.utility_bills.findMany({
+    where: { billing_year: year },
+    include: {
+      creator: true,
+      approver: true
+    }
+  })
+
+  const statuses: MonthlyReportStatus[] = []
+  
+  for (const month of FISCAL_MONTHS) {
+    for (const type of types) {
+      const bill = bills.find(b => b.billing_month === month && b.gl_code === type.code)
+      
+      statuses.push({
+        billing_year: year,
+        billing_month: month,
+        utility_type_id: type.id,
+        utility_code: type.code,
+        utility_name_th: type.name_th,
+        bill_id: bill ? bill.id : null,
+        status: bill ? (bill.status as BillStatus) : null,
+        amount: bill ? bill.amount.toString() : null,
+        created_by: bill ? bill.created_by : null,
+        creator_name: bill?.creator?.full_name || null,
+        approved_by: bill ? bill.approved_by : null,
+        approver_name: bill?.approver?.full_name || null,
+        approved_at: bill?.approved_at?.toISOString() || null,
+        created_at: bill?.created_at?.toISOString() || null
+      })
+    }
+  }
+
+  return statuses
 }
 
 export async function approveBill(billId: number, approvedBy: number): Promise<void> {

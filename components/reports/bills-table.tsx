@@ -3,27 +3,14 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
-import { formatNumber, formatTHB, THAI_MONTHS, toBuddhistYear, getCalendarYearFromFiscal } from "@/lib/format"
-import type { UtilityBill } from "@/lib/db"
+import { formatTHB } from "@/lib/format"
+import type { UtilityBill, UtilityType } from "@/lib/db"
 import type { UserRole } from "@/lib/db"
-import { Inbox, Loader2, Trash2 } from "lucide-react"
-import { useTransition } from "react"
-import { toast } from "sonner"
-import { deleteBillAction } from "@/app/(app)/reports/actions"
+import { Inbox, Send, FileEdit, CheckCircle2 } from "lucide-react"
+import Link from "next/link"
 
-export function BillsTable({ bills, role }: { bills: UtilityBill[]; role: UserRole }) {
+export function BillsTable({ bills, role, types }: { bills: UtilityBill[]; role: UserRole; types: UtilityType[] }) {
   const canDelete = role === "ADMIN" || role === "STAFF"
 
   if (bills.length === 0) {
@@ -44,39 +31,67 @@ export function BillsTable({ bills, role }: { bills: UtilityBill[]; role: UserRo
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>งวด</TableHead>
+              <TableHead>ศูนย์ต้นทุน</TableHead>
+              <TableHead>วันที่เอกสาร</TableHead>
+              <TableHead>เลขที่เอกสาร</TableHead>
               <TableHead>ประเภท</TableHead>
-              <TableHead>เลขที่อ้างอิง</TableHead>
-              <TableHead>สถานที่</TableHead>
-              <TableHead className="text-right">การใช้งาน</TableHead>
+              <TableHead>รหัสแยกประเภท</TableHead>
+              <TableHead>รหัสงบประมาณ</TableHead>
               <TableHead className="text-right">จำนวนเงิน</TableHead>
-              <TableHead>ผู้บันทึก</TableHead>
-              {canDelete && <TableHead className="w-[60px]"></TableHead>}
+              {canDelete && <TableHead className="w-[120px] text-center">จัดการ</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {bills.map((b) => (
               <TableRow key={b.id}>
-                <TableCell className="whitespace-nowrap text-sm">
-                  {THAI_MONTHS[b.billing_month - 1]} {toBuddhistYear(getCalendarYearFromFiscal(b.billing_year, b.billing_month))}
+                <TableCell className="text-sm">{b.cost_center || "-"}</TableCell>
+                <TableCell className="text-sm">
+                  {b.document_date ? new Date(b.document_date).toLocaleDateString("th-TH", { year: "numeric", month: "2-digit", day: "2-digit" }) : "-"}
                 </TableCell>
-                <TableCell>
-                  <Badge variant="secondary" className="font-normal">
-                    {b.utility_name_th}
-                  </Badge>
+                <TableCell className="text-xs font-mono text-muted-foreground">{b.document_no || b.reference_no || "-"}</TableCell>
+                <TableCell className="text-sm">{b.document_type || "-"}</TableCell>
+                <TableCell className="text-sm">
+                  {b.gl_code ? `${b.gl_code} - ${types.find(t => t.code === b.gl_code)?.name_th || "ไม่ระบุ"}` : "-"}
                 </TableCell>
-                <TableCell className="text-xs font-mono text-muted-foreground">{b.reference_no || "-"}</TableCell>
-                <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
-                  {b.location || "-"}
-                </TableCell>
-                <TableCell className="text-right text-sm tabular-nums">
-                  {b.usage ? `${formatNumber(b.usage, 2)} ${b.utility_unit}` : "-"}
-                </TableCell>
+                <TableCell className="text-sm">{b.budget_code || "-"}</TableCell>
                 <TableCell className="text-right font-medium tabular-nums">{formatTHB(b.amount)}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{b.creator_name || "-"}</TableCell>
                 {canDelete && (
-                  <TableCell>
-                    <DeleteBillButton id={b.id} />
+                  <TableCell className="text-center">
+                    {b.status === "APPROVED" ? (
+                      <Button variant="outline" size="sm" className="text-emerald-600 border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50" asChild>
+                        <Link href={`/reports/new?id=${b.id}`}>
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          อนุมัติแล้ว
+                        </Link>
+                      </Button>
+                    ) : b.status === "REJECTED" ? (
+                        <Button variant="outline" size="sm" className="text-red-600 border-red-200 bg-red-50/50 hover:bg-red-50" asChild>
+                          <Link href={`/reports/new?id=${b.id}`}>
+                            ไม่อนุมัติ
+                          </Link>
+                        </Button>
+                      ) : b.status === "RETURNED" ? (
+                        <Button variant="outline" size="sm" className="text-amber-600 border-amber-200 bg-amber-50/50 hover:bg-amber-50" asChild>
+                          <Link href={`/reports/new?id=${b.id}`}>
+                            <FileEdit className="w-3 h-3 mr-1" />
+                            แก้ไขข้อมูล
+                          </Link>
+                        </Button>
+                      ) : b.status === "SUBMITTED" ? (
+                        <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 bg-blue-50/50 hover:bg-blue-50" asChild>
+                          <Link href={`/reports/new?id=${b.id}`}>
+                            <FileEdit className="w-3 h-3 mr-1" />
+                            รอตรวจสอบ
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50" asChild>
+                          <Link href={`/reports/new?id=${b.id}`}>
+                            <Send className="w-3 h-3 mr-1" />
+                            ส่งข้อมูล
+                          </Link>
+                        </Button>
+                      )}
                   </TableCell>
                 )}
               </TableRow>
@@ -85,42 +100,5 @@ export function BillsTable({ bills, role }: { bills: UtilityBill[]; role: UserRo
         </Table>
       </div>
     </div>
-  )
-}
-
-function DeleteBillButton({ id }: { id: number }) {
-  const [pending, start] = useTransition()
-
-  function handleDelete() {
-    start(async () => {
-      const res = await deleteBillAction(id)
-      if (res.error) toast.error(res.error)
-      else toast.success("ลบรายการเรียบร้อย")
-    })
-  }
-
-  return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive">
-          {pending ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : <Trash2 className="w-4 h-4" aria-hidden />}
-          <span className="sr-only">ลบ</span>
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>ยืนยันการลบรายการ</AlertDialogTitle>
-          <AlertDialogDescription>
-            รายการที่ถูกลบจะไม่สามารถกู้คืนได้ ต้องการดำเนินการต่อหรือไม่?
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-          <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-            ลบรายการ
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   )
 }

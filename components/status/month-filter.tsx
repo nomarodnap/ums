@@ -11,7 +11,7 @@ import {
 import { monthName, FISCAL_MONTHS } from "@/lib/format"
 
 interface MonthFilterProps {
-  selectedMonth: number
+  selectedMonth: number | "all"
 }
 
 export function MonthFilter({ selectedMonth }: MonthFilterProps) {
@@ -20,7 +20,11 @@ export function MonthFilter({ selectedMonth }: MonthFilterProps) {
 
   const handleMonthChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString())
-    params.set("month", value)
+    if (value === "all") {
+      params.delete("month")
+    } else {
+      params.set("month", value)
+    }
     router.push(`/status?${params.toString()}`)
   }
 
@@ -30,6 +34,7 @@ export function MonthFilter({ selectedMonth }: MonthFilterProps) {
         <SelectValue placeholder="เลือกเดือน" />
       </SelectTrigger>
       <SelectContent>
+        <SelectItem value="all">ทุกเดือน</SelectItem>
         {FISCAL_MONTHS.map((month) => (
           <SelectItem key={month} value={String(month)}>
             {monthName(month)}

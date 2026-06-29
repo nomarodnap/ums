@@ -11,7 +11,7 @@ import {
 
 interface YearFilterProps {
   years: number[]
-  selectedYear: number
+  selectedYear: number | "all"
 }
 
 export function YearFilter({ years, selectedYear }: YearFilterProps) {
@@ -20,7 +20,12 @@ export function YearFilter({ years, selectedYear }: YearFilterProps) {
 
   const handleYearChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString())
-    params.set("year", value)
+    if (value === "all") {
+      params.delete("year")
+      params.set("year", "all")
+    } else {
+      params.set("year", value)
+    }
     router.push(`/status?${params.toString()}`)
   }
 
@@ -30,6 +35,7 @@ export function YearFilter({ years, selectedYear }: YearFilterProps) {
         <SelectValue placeholder="เลือกปี" />
       </SelectTrigger>
       <SelectContent>
+        <SelectItem value="all">ทุกปี</SelectItem>
         {years.map((year) => (
           <SelectItem key={year} value={String(year)}>
             ปี พ.ศ. {year + 543}

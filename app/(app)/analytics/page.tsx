@@ -1,6 +1,6 @@
 import { AppHeader } from "@/components/app-header"
 import { requireUser } from "@/lib/auth"
-import { getAvailableYears, getMonthlyByType, getTypeBreakdown, getUtilityTypes } from "@/lib/queries"
+import { getAvailableYears, getMonthlyByType, getTypeBreakdown, getUtilityTypes, getRolling12MonthsByType } from "@/lib/queries"
 import { MonthlyTrendChart } from "@/components/dashboard/monthly-trend-chart"
 import { TypeBreakdownChart } from "@/components/dashboard/type-breakdown-chart"
 import { YearCompareChart } from "@/components/analytics/year-compare-chart"
@@ -22,11 +22,12 @@ export default async function AnalyticsPage({
   const year = sp.year ? Number.parseInt(sp.year) : defaultYear
   const prevYear = year - 1
 
-  const [types, currentMonthly, prevMonthly, breakdown] = await Promise.all([
+  const [types, currentMonthly, prevMonthly, breakdown, rolling12Months] = await Promise.all([
     getUtilityTypes(),
     getMonthlyByType(year),
     getMonthlyByType(prevYear),
     getTypeBreakdown(year),
+    getRolling12MonthsByType(),
   ])
 
   const total = breakdown.reduce((a, b) => a + b.total, 0)
@@ -72,7 +73,7 @@ export default async function AnalyticsPage({
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
-            <MonthlyTrendChart data={currentMonthly} types={types} year={year} />
+            <MonthlyTrendChart data={rolling12Months} types={types} />
           </div>
           <div>
             <TypeBreakdownChart data={breakdown} year={year} />
