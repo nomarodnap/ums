@@ -7,7 +7,7 @@ import * as xlsx from "xlsx"
 export async function importExcelAction(formData: FormData) {
   try {
     const session = await requireRole(["ADMIN", "STAFF"])
-    
+
     const file = formData.get("file") as File
     if (!file) {
       return { error: "ไม่พบไฟล์" }
@@ -19,10 +19,10 @@ export async function importExcelAction(formData: FormData) {
     const workbook = xlsx.read(buffer, { type: "buffer" })
     const sheetName = workbook.SheetNames[0]
     const worksheet = workbook.Sheets[sheetName]
-    
+
     // Parse to JSON array of arrays, skipping header
     const data = xlsx.utils.sheet_to_json(worksheet, { header: 1 }) as any[][]
-    
+
     // Remove the first row (header)
     if (data.length > 0) {
       data.shift()
@@ -35,9 +35,10 @@ export async function importExcelAction(formData: FormData) {
       return { error: "ไม่มีข้อมูลในไฟล์" }
     }
 
-    let successCount = 0
+    const parsedRows = []
+    let rowIndex = 2
 
-    // Process each row
+    // Parse and validate each row first
     for (const row of rows) {
       const costCenter = row[0] ? String(row[0]).trim() : null
       const docDateStr = row[1] ? String(row[1]).trim() : null
@@ -45,7 +46,23 @@ export async function importExcelAction(formData: FormData) {
       const docType = row[3] ? String(row[3]).trim() : null
       const glCode = row[4] ? String(row[4]).trim() : null
       const budgetCode = row[5] ? String(row[5]).trim() : null
-      const amountStr = row[6] ? String(row[6]).trim().replace(/,/g, '') : "0"
+      const originalAmountStr = row[6] ? String(row[6]).trim() : "0"
+
+      const errors: Record<string, boolean> = {}
+
+      if (!costCenter || !/^\d{10}$/.test(costCenter)) errors.costCenter = true
+      if (!docDateStr || !/^\d{2}\.\d{2}\.\d{4}$/.test(docDateStr)) errors.docDateStr = true
+      if (!docNo || !/^\d{10}$/.test(docNo)) errors.docNo = true
+      if (!docType || !/^.{2}$/.test(docType)) errors.docType = true
+      if (!glCode || !/^\d{10}$/.test(glCode)) errors.glCode = true
+      if (!budgetCode || !/^\d{20}$/.test(budgetCode)) errors.budgetCode = true
+      if (!/^-?\d{1,3}(,\d{3})*\.\d{2}$/.test(originalAmountStr)) errors.amount = true
+
+      if (Object.keys(errors).length > 0) {
+        return { error: `พบข้อมูลที่ไม่ถูกต้องในแถวที่ ${rowIndex} โปรดตรวจสอบรูปแบบข้อมูลและลองอีกครั้ง` }
+      }
+
+      const amountStr = originalAmountStr.replace(/,/g, '')
       const parsedAmount = parseFloat(amountStr)
       const finalAmount = isNaN(parsedAmount) ? 0 : parsedAmount
 
@@ -60,37 +77,53 @@ export async function importExcelAction(formData: FormData) {
           const dd = parseInt(parts[0], 10)
           const mm = parseInt(parts[1], 10)
           let yyyy = parseInt(parts[2], 10)
-          
+
           // Convert พ.ศ. to ค.ศ. if year > 2500
           if (yyyy > 2500) {
             yyyy -= 543
           }
-          
+
           if (!isNaN(dd) && !isNaN(mm) && !isNaN(yyyy)) {
             documentDate = new Date(yyyy, mm - 1, dd)
+            billingYear = yyyy
+            billingMonth = mm
           }
         }
       }
 
-      // We determine who should be the creator. Try to find user by cost_center.
+      parsedRows.push({
+        costCenter,
+        docDateStr,
+        docNo,
+        docType,
+        glCode,
+        budgetCode,
+        finalAmount,
+        documentDate,
+        billingYear,
+        billingMonth
+      })
+
+      rowIndex++
+    }
+
+    let successCount = 0
+
+    // Process each valid row
+    for (const row of parsedRows) {
       let createdById = session.id
-      if (costCenter) {
+      if (row.costCenter) {
         const userWithCostCenter = await prisma.users.findFirst({
-          where: { cost_center: costCenter }
+          where: { cost_center: row.costCenter }
         })
         if (userWithCostCenter) {
           createdById = userWithCostCenter.id
         } else {
-          // As per requirement "บันทึกลงใน cost_center ใน users"
-          // If we couldn't find a user, maybe update current user if they don't have one?
-          // Or just leave it. We will save it in the bill itself.
-          
-          // Let's actually check if current user has cost center. If not, set it.
-          const currentUser = await prisma.users.findUnique({ where: { id: session.id }})
+          const currentUser = await prisma.users.findUnique({ where: { id: session.id } })
           if (currentUser && !currentUser.cost_center) {
             await prisma.users.update({
               where: { id: session.id },
-              data: { cost_center: costCenter }
+              data: { cost_center: row.costCenter }
             })
           }
         }
@@ -98,19 +131,19 @@ export async function importExcelAction(formData: FormData) {
 
       await prisma.utility_bills.create({
         data: {
-          billing_year: billingYear,
-          billing_month: billingMonth,
-          amount: finalAmount,
-          reference_no: docNo || "-",
+          billing_year: row.billingYear,
+          billing_month: row.billingMonth,
+          amount: row.finalAmount,
+          reference_no: row.docNo || "-",
           status: "PENDING",
           created_by: createdById,
           updated_at: new Date(),
-          cost_center: costCenter,
-          document_date: documentDate,
-          document_no: docNo,
-          document_type: docType,
-          gl_code: glCode,
-          budget_code: budgetCode,
+          cost_center: row.costCenter,
+          document_date: row.documentDate,
+          document_no: row.docNo,
+          document_type: row.docType,
+          gl_code: row.glCode,
+          budget_code: row.budgetCode,
         }
       })
       successCount++
@@ -136,11 +169,13 @@ export async function previewExcelAction(formData: FormData) {
     const sheetName = workbook.SheetNames[0]
     const worksheet = workbook.Sheets[sheetName]
     const data = xlsx.utils.sheet_to_json(worksheet, { header: 1 }) as any[][]
-    
+
     if (data.length > 0) data.shift()
 
     const rows = data.filter(row => row.length > 0 && row.some(cell => cell !== undefined && cell !== null && cell !== ''))
     if (rows.length === 0) return { error: "ไม่มีข้อมูลในไฟล์" }
+
+    let hasErrors = false
 
     const parsedRows = rows.map((row, index) => {
       const costCenter = row[0] ? String(row[0]).trim() : null
@@ -149,23 +184,40 @@ export async function previewExcelAction(formData: FormData) {
       const docType = row[3] ? String(row[3]).trim() : null
       const glCode = row[4] ? String(row[4]).trim() : null
       const budgetCode = row[5] ? String(row[5]).trim() : null
-      const amountStr = row[6] ? String(row[6]).trim().replace(/,/g, '') : "0"
+      const originalAmountStr = row[6] ? String(row[6]).trim() : "0"
+      
+      const errors: Record<string, boolean> = {}
+
+      if (!costCenter || !/^\d{10}$/.test(costCenter)) errors.costCenter = true
+      if (!docDateStr || !/^\d{2}\.\d{2}\.\d{4}$/.test(docDateStr)) errors.docDateStr = true
+      if (!docNo || !/^\d{10}$/.test(docNo)) errors.docNo = true
+      if (!docType || !/^.{2}$/.test(docType)) errors.docType = true
+      if (!glCode || !/^\d{10}$/.test(glCode)) errors.glCode = true
+      if (!budgetCode || !/^\d{20}$/.test(budgetCode)) errors.budgetCode = true
+      if (!/^-?\d{1,3}(,\d{3})*\.\d{2}$/.test(originalAmountStr)) errors.amount = true
+
+      if (Object.keys(errors).length > 0) hasErrors = true
+
+      const amountStr = originalAmountStr.replace(/,/g, '')
       const parsedAmount = parseFloat(amountStr)
       const finalAmount = isNaN(parsedAmount) ? 0 : parsedAmount
 
       return {
         id: index,
+        rowNumber: index + 2, // Row 1 is header
         costCenter,
         docDateStr,
         docNo,
         docType,
         glCode,
         budgetCode,
-        amount: finalAmount
+        amount: finalAmount,
+        originalAmountStr,
+        errors
       }
     })
 
-    return { success: true, data: parsedRows }
+    return { success: true, data: parsedRows, hasErrors }
   } catch (err) {
     console.error("Preview error:", err)
     return { error: "เกิดข้อผิดพลาดในการอ่านไฟล์" }

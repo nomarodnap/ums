@@ -20,6 +20,7 @@ export default function ImportPage() {
   const [isDragging, setIsDragging] = useState(false)
   const [fileError, setFileError] = useState<string | null>(null)
   const [previewData, setPreviewData] = useState<any[] | null>(null)
+  const [hasErrors, setHasErrors] = useState(false)
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -79,6 +80,7 @@ export default function ImportPage() {
         toast.error(res.error)
       } else if (res.success && res.data) {
         setPreviewData(res.data)
+        setHasErrors(res.hasErrors || false)
       }
     } catch (err) {
       console.error(err)
@@ -91,6 +93,7 @@ export default function ImportPage() {
 
   const handleCancelPreview = () => {
     setPreviewData(null)
+    setHasErrors(false)
     setFile(null)
     const fileInput = document.getElementById('excel-file') as HTMLInputElement
     if (fileInput) fileInput.value = ''
@@ -115,6 +118,7 @@ export default function ImportPage() {
         setResult({ success: true, message: "นำเข้าข้อมูลสำเร็จ", count: res.count })
         toast.success(`นำเข้าข้อมูลสำเร็จจำนวน ${res.count} รายการ`)
         setPreviewData(null)
+        setHasErrors(false)
         setFile(null)
         // Reset file input
         const fileInput = document.getElementById('excel-file') as HTMLInputElement
@@ -247,12 +251,21 @@ export default function ImportPage() {
             <DialogContent className="max-w-[95vw] w-full lg:max-w-7xl">
               <DialogHeader>
                 <DialogTitle>ตัวอย่างข้อมูลที่จะนำเข้า ({previewData?.length} รายการ)</DialogTitle>
-                <DialogDescription>กรุณาตรวจสอบความถูกต้องของข้อมูลก่อนกดยืนยันการนำเข้า</DialogDescription>
+                <DialogDescription>
+                  {hasErrors ? (
+                    <span className="text-red-600 font-semibold flex items-center gap-2 mt-2">
+                      <AlertCircle className="w-4 h-4" /> พบข้อมูลไม่ถูกต้องตามรูปแบบ โปรดแก้ไขในไฟล์ต้นฉบับแล้วอัปโหลดใหม่
+                    </span>
+                  ) : (
+                    "กรุณาตรวจสอบความถูกต้องของข้อมูลก่อนกดยืนยันการนำเข้า"
+                  )}
+                </DialogDescription>
               </DialogHeader>
               <div className="overflow-x-auto max-h-[50vh] border rounded-md">
                 <Table>
                   <TableHeader className="bg-muted sticky top-0 z-10 shadow-sm">
                     <TableRow>
+                      <TableHead className="w-16">แถวที่</TableHead>
                       <TableHead>ศูนย์ต้นทุน</TableHead>
                       <TableHead>วันที่เอกสาร</TableHead>
                       <TableHead>เลขที่เอกสาร</TableHead>
@@ -265,13 +278,16 @@ export default function ImportPage() {
                   <TableBody>
                     {previewData?.map((row, i) => (
                       <TableRow key={i}>
-                        <TableCell className="text-sm">{row.costCenter || "-"}</TableCell>
-                        <TableCell className="text-sm">{row.docDateStr || "-"}</TableCell>
-                        <TableCell className="text-sm">{row.docNo || "-"}</TableCell>
-                        <TableCell className="text-sm">{row.docType || "-"}</TableCell>
-                        <TableCell className="text-sm">{row.glCode || "-"}</TableCell>
-                        <TableCell className="text-sm">{row.budgetCode || "-"}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatTHB(row.amount)}</TableCell>
+                        <TableCell className="text-sm font-medium text-muted-foreground">{row.rowNumber}</TableCell>
+                        <TableCell className={`text-sm ${row.errors?.costCenter ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 font-bold' : ''}`}>{row.costCenter || "-"}</TableCell>
+                        <TableCell className={`text-sm ${row.errors?.docDateStr ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 font-bold' : ''}`}>{row.docDateStr || "-"}</TableCell>
+                        <TableCell className={`text-sm ${row.errors?.docNo ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 font-bold' : ''}`}>{row.docNo || "-"}</TableCell>
+                        <TableCell className={`text-sm ${row.errors?.docType ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 font-bold' : ''}`}>{row.docType || "-"}</TableCell>
+                        <TableCell className={`text-sm ${row.errors?.glCode ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 font-bold' : ''}`}>{row.glCode || "-"}</TableCell>
+                        <TableCell className={`text-sm ${row.errors?.budgetCode ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 font-bold' : ''}`}>{row.budgetCode || "-"}</TableCell>
+                        <TableCell className={`text-right tabular-nums ${row.errors?.amount ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 font-bold' : ''}`}>
+                          {row.errors?.amount ? row.originalAmountStr : formatTHB(row.amount)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -288,8 +304,8 @@ export default function ImportPage() {
                 </Button>
                 <Button
                   onClick={handleConfirmImport}
-                  disabled={loading}
-                  className="h-10 px-6 rounded-xl bg-green-600 hover:bg-green-700 text-white"
+                  disabled={loading || hasErrors}
+                  className={`h-10 px-6 rounded-xl text-white ${hasErrors ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`}
                 >
                   {loading ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -303,21 +319,23 @@ export default function ImportPage() {
           </Dialog>
 
           {result && (
-            <div className={`p-5 rounded-2xl border flex items-start gap-4 animate-in slide-in-from-bottom-2 fade-in duration-300 shadow-sm
+            <div className={`p-5 rounded-2xl border flex flex-col items-start gap-4 animate-in slide-in-from-bottom-2 fade-in duration-300 shadow-sm
               ${result.success ? 'bg-gradient-to-br from-green-500/10 to-emerald-500/5 border-green-500/30 text-green-800 dark:text-green-300' : 'bg-gradient-to-br from-red-500/10 to-rose-500/5 border-red-500/30 text-red-800 dark:text-red-300'}`}
             >
-              <div className={`p-2 rounded-full ${result.success ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
-                {result.success ? (
-                  <CheckCircle2 className="w-6 h-6 shrink-0" />
-                ) : (
-                  <AlertCircle className="w-6 h-6 shrink-0" />
-                )}
-              </div>
-              <div className="flex-1 mt-0.5">
-                <p className="font-bold text-base">{result.message}</p>
-                {result.success && result.count !== undefined && (
-                  <p className="text-sm opacity-90 mt-1">อัปเดตข้อมูลสำเร็จจำนวน {result.count} รายการในฐานข้อมูล</p>
-                )}
+              <div className="flex items-start gap-4 w-full">
+                <div className={`p-2 rounded-full ${result.success ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+                  {result.success ? (
+                    <CheckCircle2 className="w-6 h-6 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-6 h-6 shrink-0" />
+                  )}
+                </div>
+                <div className="flex-1 mt-0.5">
+                  <p className="font-bold text-base">{result.message}</p>
+                  {result.success && result.count !== undefined && (
+                    <p className="text-sm opacity-90 mt-1">อัปเดตข้อมูลสำเร็จจำนวน {result.count} รายการในฐานข้อมูล</p>
+                  )}
+                </div>
               </div>
             </div>
           )}
