@@ -9,7 +9,7 @@ git pull
 
 echo.
 echo [2/4] Installing dependencies (just in case)...
-call npm install
+call npm ci
 
 echo.
 echo [3/4] Generating Prisma Client...
