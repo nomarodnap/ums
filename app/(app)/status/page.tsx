@@ -1,5 +1,6 @@
 import { AdminStatusFilters } from "@/components/status/admin-status-filters"
 import { AdminStatusTable } from "@/components/status/admin-status-table"
+import { StatusPieChart } from "@/components/status/status-pie-chart"
 import { AppHeader } from "@/components/app-header"
 import { Card, CardContent } from "@/components/ui/card"
 import { getAvailableYears, getBills, getUtilityTypes } from "@/lib/queries"
@@ -8,7 +9,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { formatTHB } from "@/lib/format"
-import { FileText, CheckCircle2, TrendingUp } from "lucide-react"
+import { FileText, CheckCircle2, TrendingUp, XCircle, RotateCcw, Clock } from "lucide-react"
 
 export const metadata = { title: "ตรวจสอบสถานะรายงาน" }
 
@@ -31,17 +32,29 @@ export default async function StatusPage({
   const limit = 50
   const offset = (page - 1) * limit
 
-  const [types, years, { bills, total }, { total: totalSubmitted }, { total: totalApproved }] = await Promise.all([
+  const [
+    types, 
+    years, 
+    { bills, total }, 
+    { total: totalSubmitted }, 
+    { total: totalApproved },
+    { total: totalReturned },
+    { total: totalRejected },
+    { total: totalPending }
+  ] = await Promise.all([
     getUtilityTypes(),
     getAvailableYears(),
     getBills({ year, month, typeCode, search, limit, offset, status }),
     getBills({ year, month, typeCode, search, status: "SUBMITTED" }),
     getBills({ year, month, typeCode, search, status: "APPROVED" }),
+    getBills({ year, month, typeCode, search, status: "RETURNED" }),
+    getBills({ year, month, typeCode, search, status: "REJECTED" }),
+    getBills({ year, month, typeCode, search, status: "PENDING" }),
   ])
 
-  // Ensure current and previous years are available
+  // Ensure current and previous 9 years are available (total 10 years)
   const currentYear = new Date().getFullYear()
-  const defaultYears = [currentYear, currentYear - 1, 2025]
+  const defaultYears = Array.from({ length: 10 }, (_, i) => currentYear - i)
   defaultYears.forEach(y => {
     if (!years.includes(y)) years.push(y)
   })
@@ -67,42 +80,90 @@ export default async function StatusPage({
 
       <AdminStatusFilters years={sortedYears} types={types} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="shadow-sm border-l-4 border-l-amber-500">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-amber-100 text-amber-700 rounded-full">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">รอตรวจสอบ</p>
-              <p className="text-2xl font-bold mt-1 text-amber-600">{totalSubmitted.toLocaleString("th-TH")}</p>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="shadow-sm border-l-4 border-l-emerald-500">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-emerald-100 text-emerald-700 rounded-full">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">อนุมัติแล้ว</p>
-              <p className="text-2xl font-bold mt-1 text-emerald-600">{totalApproved.toLocaleString("th-TH")}</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-3 gap-4">
+          <Card className="shadow-sm border-l-4 border-l-slate-400">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 bg-slate-100 text-slate-600 rounded-full">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">รอดำเนินการ</p>
+                <p className="text-2xl font-bold mt-1 text-slate-600">{totalPending.toLocaleString("th-TH")}</p>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-sm border-l-4 border-l-blue-500">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-blue-100 text-blue-700 rounded-full">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">ยอดรวมหน้านี้</p>
-              <p className="text-xl font-bold mt-1 text-blue-600 tabular-nums">{formatTHB(totalAmount)}</p>
-            </div>
-          </CardContent>
-        </Card>
+          <Card className="shadow-sm border-l-4 border-l-blue-500">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 bg-blue-100 text-blue-700 rounded-full">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">รอตรวจสอบ</p>
+                <p className="text-2xl font-bold mt-1 text-blue-600">{totalSubmitted.toLocaleString("th-TH")}</p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="shadow-sm border-l-4 border-l-emerald-500">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 bg-emerald-100 text-emerald-700 rounded-full">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">อนุมัติแล้ว</p>
+                <p className="text-2xl font-bold mt-1 text-emerald-600">{totalApproved.toLocaleString("th-TH")}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-l-4 border-l-amber-500">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 bg-amber-100 text-amber-700 rounded-full">
+                <RotateCcw className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">ส่งกลับแก้ไข</p>
+                <p className="text-2xl font-bold mt-1 text-amber-600">{totalReturned.toLocaleString("th-TH")}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-l-4 border-l-red-500">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 bg-red-100 text-red-700 rounded-full">
+                <XCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">ไม่อนุมัติ</p>
+                <p className="text-2xl font-bold mt-1 text-red-600">{totalRejected.toLocaleString("th-TH")}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-l-4 border-l-indigo-500 col-span-2 md:col-span-1">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 bg-indigo-100 text-indigo-700 rounded-full">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">ยอดรวมหน้านี้</p>
+                <p className="text-xl font-bold mt-1 text-indigo-600 tabular-nums">{formatTHB(totalAmount)}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        <div className="lg:col-span-1">
+          <StatusPieChart 
+            pending={totalPending}
+            submitted={totalSubmitted}
+            approved={totalApproved}
+            returned={totalReturned}
+            rejected={totalRejected}
+          />
+        </div>
       </div>
 
       <div className="flex items-center justify-between">

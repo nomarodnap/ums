@@ -7,7 +7,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { formatTHB } from "@/lib/format"
 import type { UtilityBill, UtilityType } from "@/lib/db"
 import type { UserRole } from "@/lib/db"
-import { Inbox, Send, FileEdit, CheckCircle2 } from "lucide-react"
+import { Inbox, Send, FileEdit, CheckCircle2, XCircle, Clock } from "lucide-react"
 import Link from "next/link"
 
 export function BillsTable({ bills, role, types }: { bills: UtilityBill[]; role: UserRole; types: UtilityType[] }) {
@@ -58,36 +58,37 @@ export function BillsTable({ bills, role, types }: { bills: UtilityBill[]; role:
                 {canDelete && (
                   <TableCell className="text-center">
                     {b.status === "APPROVED" ? (
-                      <Button variant="outline" size="sm" className="text-emerald-600 border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50" asChild>
+                      <Button variant="outline" size="sm" className="text-emerald-600 dark:text-emerald-500" asChild>
                         <Link href={`/reports/new?id=${b.id}`}>
-                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
                           อนุมัติแล้ว
                         </Link>
                       </Button>
                     ) : b.status === "REJECTED" ? (
-                        <Button variant="outline" size="sm" className="text-red-600 border-red-200 bg-red-50/50 hover:bg-red-50" asChild>
+                        <Button variant="outline" size="sm" className="text-red-600 dark:text-red-500" asChild>
                           <Link href={`/reports/new?id=${b.id}`}>
+                            <XCircle className="w-3.5 h-3.5 mr-1.5" />
                             ไม่อนุมัติ
                           </Link>
                         </Button>
                       ) : b.status === "RETURNED" ? (
-                        <Button variant="outline" size="sm" className="text-amber-600 border-amber-200 bg-amber-50/50 hover:bg-amber-50" asChild>
+                        <Button variant="outline" size="sm" className="text-amber-600 dark:text-amber-500" asChild>
                           <Link href={`/reports/new?id=${b.id}`}>
-                            <FileEdit className="w-3 h-3 mr-1" />
+                            <FileEdit className="w-3.5 h-3.5 mr-1.5" />
                             แก้ไขข้อมูล
                           </Link>
                         </Button>
                       ) : b.status === "SUBMITTED" ? (
-                        <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 bg-blue-50/50 hover:bg-blue-50" asChild>
+                        <Button variant="outline" size="sm" className="text-blue-600 dark:text-blue-500" asChild>
                           <Link href={`/reports/new?id=${b.id}`}>
-                            <FileEdit className="w-3 h-3 mr-1" />
+                            <Clock className="w-3.5 h-3.5 mr-1.5" />
                             รอตรวจสอบ
                           </Link>
                         </Button>
                       ) : (
-                        <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50" asChild>
+                        <Button variant="outline" size="sm" asChild>
                           <Link href={`/reports/new?id=${b.id}`}>
-                            <Send className="w-3 h-3 mr-1" />
+                            <Send className="w-3.5 h-3.5 mr-1.5" />
                             ส่งข้อมูล
                           </Link>
                         </Button>

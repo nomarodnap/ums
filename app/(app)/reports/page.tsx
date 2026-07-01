@@ -20,8 +20,9 @@ export default async function ReportsPage({
   const user = await requireUser()
   const year = sp.year ? Number.parseInt(sp.year) : undefined
   const month = sp.month ? Number.parseInt(sp.month) : undefined
-  const typeCode = sp.type
+  const typeCode = sp.type === "all" ? undefined : sp.type
   const search = sp.search
+  const status = sp.status === "all" ? undefined : sp.status
   const page = sp.page ? Math.max(1, Number.parseInt(sp.page)) : 1
   const limit = 50
   const offset = (page - 1) * limit
@@ -29,7 +30,7 @@ export default async function ReportsPage({
   const [types, years, { bills, total }] = await Promise.all([
     getUtilityTypes(),
     getAvailableYears(),
-    getBills({ year, month, typeCode, search, limit, offset, costCenter: user.cost_center }),
+    getBills({ year, month, typeCode, search, limit, offset, status, costCenter: user.cost_center }),
   ])
 
   const totalAmount = bills.reduce((acc, b) => acc + Number.parseFloat(b.amount), 0)

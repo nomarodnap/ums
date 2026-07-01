@@ -24,7 +24,8 @@ export function ReportsFilters({
 
   function updateParam(key: string, value: string) {
     const sp = new URLSearchParams(params.toString())
-    if (!value || value === "all") sp.delete(key)
+    // For status, we explicitly want to keep 'all' in the URL so the page knows the user selected it
+    if (!value || (value === "all" && key !== "status")) sp.delete(key)
     else sp.set(key, value)
     sp.delete("page")
     start(() => router.push(`/reports?${sp.toString()}`))
@@ -38,13 +39,29 @@ export function ReportsFilters({
   const currentMonth = params.get("month") || "all"
   const currentType = params.get("type") || "all"
   const currentSearch = params.get("search") || ""
-  const hasFilter = params.toString().length > 0
+  const currentStatus = params.get("status") || "all"
+  const hasFilter = Array.from(params.keys()).length > 0
 
   return (
-    <div className="flex flex-col gap-4 p-4 rounded-lg border border-border bg-card">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="flex flex-col gap-4 p-4 rounded-lg border border-border bg-card shadow-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        
         <div className="space-y-1.5">
-          <Label className="text-xs">ปีงบประมาณ</Label>
+          <Label className="text-xs">สถานะรายการ</Label>
+          <Select value={currentStatus} onValueChange={(v) => updateParam("status", v)} disabled={pending}>
+            <SelectTrigger><SelectValue placeholder="เลือกสถานะ" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทั้งหมด</SelectItem>
+              <SelectItem value="PENDING">รอดำเนินการ</SelectItem>
+              <SelectItem value="SUBMITTED">รอตรวจสอบ</SelectItem>
+              <SelectItem value="APPROVED">อนุมัติแล้ว</SelectItem>
+              <SelectItem value="RETURNED">ส่งกลับแก้ไข</SelectItem>
+              <SelectItem value="REJECTED">ไม่อนุมัติ</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">ปี</Label>
           <Select value={currentYear} onValueChange={(v) => updateParam("year", v)} disabled={pending}>
             <SelectTrigger><SelectValue placeholder="ทั้งหมด" /></SelectTrigger>
             <SelectContent>

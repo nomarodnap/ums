@@ -69,6 +69,10 @@ export function AdminStatusTable({ bills, types }: { bills: UtilityBill[]; types
                     <span className="inline-flex items-center text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full border border-blue-200">
                       <FileText className="w-3 h-3 mr-1" /> รอตรวจสอบ
                     </span>
+                  ) : b.status === "PENDING" ? (
+                    <span className="inline-flex items-center text-xs font-medium text-slate-600 bg-slate-50 px-2 py-1 rounded-full border border-slate-200">
+                      <FileText className="w-3 h-3 mr-1" /> รอดำเนินการ
+                    </span>
                   ) : (
                     <span className="inline-flex items-center text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full border border-border">
                       {b.status}
@@ -77,7 +81,7 @@ export function AdminStatusTable({ bills, types }: { bills: UtilityBill[]; types
                 </TableCell>
                 <TableCell className="text-center">
                   <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50" asChild>
-                    <Link href={`/status/${b.id}`}>
+                    <Link href={`/status/${b.id}`} target="_blank" rel="noopener noreferrer">
                       ตรวจข้อมูล
                     </Link>
                   </Button>

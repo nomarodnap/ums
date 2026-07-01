@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useState } from "react"
+import { useActionState, useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { updateBillStatusAction } from "@/app/(app)/reports/actions"
 import { CheckCircle2, Loader2, ArrowLeft, XCircle, RotateCcw } from "lucide-react"
@@ -20,15 +20,19 @@ export function ReviewActions({ billId, status }: { billId: number, status: stri
   const [returnDialogOpen, setReturnDialogOpen] = useState(false)
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
   
+  useEffect(() => {
+    if (state.success) {
+      // Small timeout to allow the UI to show loading if needed, or close immediately
+      window.close()
+      // Fallback in case window.close() is blocked (e.g. if the tab wasn't opened by script)
+      // Usually it works if opened via target="_blank"
+    }
+  }, [state.success])
+  
   return (
     <>
-      <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
-        <Button variant="outline" type="button" asChild className="w-full sm:w-auto shadow-sm">
-          <Link href="/status">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            ย้อนกลับ
-          </Link>
-        </Button>
+      <div className="flex flex-col sm:flex-row items-center justify-end gap-3 w-full md:w-auto mt-2 md:mt-0">
+
         
         {status === "SUBMITTED" && (
           <form action={formAction} className="flex items-center gap-2 w-full sm:w-auto">

@@ -53,6 +53,7 @@ export function AdminStatusFilters({
             <SelectTrigger><SelectValue placeholder="เลือกสถานะ" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">ทั้งหมด</SelectItem>
+              <SelectItem value="PENDING">รอดำเนินการ</SelectItem>
               <SelectItem value="SUBMITTED">รอตรวจสอบ</SelectItem>
               <SelectItem value="APPROVED">อนุมัติแล้ว</SelectItem>
               <SelectItem value="RETURNED">ส่งกลับแก้ไข</SelectItem>
@@ -62,7 +63,7 @@ export function AdminStatusFilters({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs">ปีงบประมาณ</Label>
+          <Label className="text-xs">ปี</Label>
           <Select value={currentYear} onValueChange={(v) => updateParam("year", v)} disabled={pending}>
             <SelectTrigger><SelectValue placeholder="ทั้งหมด" /></SelectTrigger>
             <SelectContent>

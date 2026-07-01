@@ -249,5 +249,5 @@ export async function updateBillStatusAction(prev: BillFormState, formData: Form
   revalidatePath("/reports")
   revalidatePath("/status")
   revalidatePath("/analytics")
-  redirect("/status")
+  return { success: true }
 }
