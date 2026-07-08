@@ -14,20 +14,17 @@ import { MoreHorizontal } from "lucide-react"
 
 const initialState: BillFormState = {}
 
-export function ReviewActions({ billId, status }: { billId: number, status: string }) {
+export function ReviewActions({ billId, status, onSuccess }: { billId: number, status: string, onSuccess?: () => void }) {
   const [state, formAction, pending] = useActionState(updateBillStatusAction, initialState)
   
   const [returnDialogOpen, setReturnDialogOpen] = useState(false)
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
   
   useEffect(() => {
-    if (state.success) {
-      // Small timeout to allow the UI to show loading if needed, or close immediately
-      window.close()
-      // Fallback in case window.close() is blocked (e.g. if the tab wasn't opened by script)
-      // Usually it works if opened via target="_blank"
+    if (state.success && onSuccess) {
+      onSuccess()
     }
-  }, [state.success])
+  }, [state.success, onSuccess])
   
   return (
     <>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useState, useRef } from "react"
+import { useActionState, useState, useRef, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet, FieldDescription } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Checkbox } from "@/components/ui/checkbox"
 import { THAI_MONTHS, toBuddhistYear, getFiscalYear } from "@/lib/format"
 import type { UtilityType } from "@/lib/db"
-import { createBillAction, type BillFormState } from "../actions"
+import { createBillAction, type BillFormState } from "@/app/(app)/reports/actions"
 import type { UtilityBill } from "@/lib/db"
 import { AlertCircle, Loader2, Save, UploadCloud, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
@@ -22,8 +22,15 @@ import type { UserRole } from "@/lib/db"
 
 const initialState: BillFormState = {}
 
-export function BillForm({ initialData, userFullName, userRole, agencyUsers }: { initialData?: Partial<UtilityBill>, userFullName?: string, userRole?: UserRole, agencyUsers?: { id: number, full_name: string, department: string }[] }) {
+export function BillForm({ initialData, userFullName, userRole, agencyUsers, onSuccess }: { initialData?: Partial<UtilityBill>, userFullName?: string, userRole?: UserRole, agencyUsers?: { id: number, short_name: string, department: string }[], onSuccess?: () => void }) {
   const [state, formAction, pending] = useActionState(createBillAction, initialState)
+
+  useEffect(() => {
+    if (state.success && onSuccess) {
+      onSuccess()
+    }
+  }, [state.success, onSuccess])
+
   
   const isReadOnly = !!initialData && initialData.status !== "RETURNED" && initialData.status !== "PENDING"
 

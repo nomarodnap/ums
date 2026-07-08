@@ -108,6 +108,7 @@ export async function importExcelAction(formData: FormData) {
     }
 
     let successCount = 0
+    const importedByCostCenter: Record<string, number> = {}
 
     // Process each valid row
     for (const row of parsedRows) {
@@ -146,7 +147,34 @@ export async function importExcelAction(formData: FormData) {
           budget_code: row.budgetCode,
         }
       })
+      
+      if (row.costCenter) {
+        importedByCostCenter[row.costCenter] = (importedByCostCenter[row.costCenter] || 0) + 1
+      }
       successCount++
+    }
+
+    // Create notifications for each cost center
+    for (const [costCenter, count] of Object.entries(importedByCostCenter)) {
+      const targetUsers = await prisma.users.findMany({
+        where: {
+          cost_center: costCenter,
+          is_active: true
+        },
+        select: { id: true }
+      })
+
+      if (targetUsers.length > 0) {
+        await prisma.notifications.createMany({
+          data: targetUsers.map((u) => ({
+            user_id: u.id,
+            title: "แจ้งเตือนการนำเข้าข้อมูลระบบ",
+            message: `ระบบได้ดำเนินการนำเข้าข้อมูลค่าสาธารณูปโภค จำนวน ${count} รายการ สำหรับรหัสศูนย์ต้นทุน ${costCenter} เป็นที่เรียบร้อยแล้ว`,
+            type: "NEW_REPORT",
+            created_at: new Date(),
+          }))
+        })
+      }
     }
 
     return { success: true, count: successCount }

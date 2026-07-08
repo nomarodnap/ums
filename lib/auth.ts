@@ -109,7 +109,7 @@ export async function getCurrentUser(): Promise<User | null> {
   return {
     id: u.id,
     email: u.email,
-    full_name: u.full_name,
+    short_name: u.short_name,
     department: u.department,
     cost_center: u.cost_center,
     role: u.role as UserRole,
@@ -160,7 +160,7 @@ export async function authenticateUser(email: string, password: string): Promise
     user: {
       id: user.id,
       email: user.email,
-      full_name: user.full_name,
+      short_name: user.short_name,
       department: user.department,
       cost_center: user.cost_center,
       role: user.role as UserRole,

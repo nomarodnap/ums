@@ -20,7 +20,7 @@ model users {
   id                  Int                   @id @default(autoincrement())
   email               String                @unique
   password_hash       String?
-  full_name           String
+  short_name          String
   department          String
   role                String
   is_active           Boolean               @default(true)
@@ -33,6 +33,7 @@ model users {
   reset_tokens        reset_tokens[]
   created_bills       utility_bills[]       @relation("CreatedBills")
   approved_bills      utility_bills[]       @relation("ApprovedBills")
+  notifications       notifications[]
 }
 
 model utility_bills {
@@ -99,4 +100,16 @@ model reset_tokens {
   expires_at DateTime
   created_at DateTime @default(now())
   user       users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model notifications {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  title       String
+  message     String
+  type        String   // 'NEW_REPORT', 'STATUS_CHANGE'
+  is_read     Boolean  @default(false)
+  created_at  DateTime @default(now())
+  bill_id     Int?
+  user        users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }

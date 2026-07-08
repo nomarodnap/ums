@@ -3,10 +3,9 @@ import { ReportsFilters } from "@/components/reports/reports-filters"
 import { BillsTable } from "@/components/reports/bills-table"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { getAvailableYears, getBills, getUtilityTypes } from "@/lib/queries"
+import { getAvailableYears, getBills, getUtilityTypes, getAgencyUsers } from "@/lib/queries"
 import { requireUser } from "@/lib/auth"
 import Link from "next/link"
-import { Plus } from "lucide-react"
 import { formatTHB } from "@/lib/format"
 
 export const metadata = { title: "รายงานค่าสาธารณูปโภค" }
@@ -27,10 +26,11 @@ export default async function ReportsPage({
   const limit = 50
   const offset = (page - 1) * limit
 
-  const [types, years, { bills, total }] = await Promise.all([
+  const [types, years, { bills, total }, agencyUsers] = await Promise.all([
     getUtilityTypes(),
     getAvailableYears(),
     getBills({ year, month, typeCode, search, limit, offset, status, costCenter: user.cost_center }),
+    getAgencyUsers()
   ])
 
   const totalAmount = bills.reduce((acc, b) => acc + Number.parseFloat(b.amount), 0)
@@ -74,7 +74,7 @@ export default async function ReportsPage({
           </Card>
         </div>
 
-        <BillsTable bills={bills} role={user.role} types={types} />
+        <BillsTable bills={bills} role={user.role} types={types} agencyUsers={agencyUsers} userFullName={user.short_name} />
 
         {total > limit && <Pagination page={page} total={total} limit={limit} sp={sp} />}
       </div>

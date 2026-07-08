@@ -35,8 +35,8 @@ export function UsersTable({ users, currentUserId }: { users: User[]; currentUse
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="font-semibold h-14">ชื่อเต็มหน่วยงาน</TableHead>
-              <TableHead className="font-semibold h-14">ชื่อย่อหน่วยงาน</TableHead>
+              <TableHead className="font-semibold h-14">อักษรย่อหน่วยงาน</TableHead>
+              <TableHead className="font-semibold h-14">ชื่อหน่วยงาน</TableHead>
               <TableHead className="font-semibold h-14">รหัสศูนย์ต้นทุน</TableHead>
               <TableHead className="font-semibold h-14 w-[180px]">บทบาท</TableHead>
               <TableHead className="font-semibold h-14 w-[140px]">สถานะ</TableHead>
@@ -86,12 +86,12 @@ function UserRow({ user, isMe }: { user: User; isMe: boolean }) {
         <div className="flex items-center gap-4">
           <Avatar className="h-10 w-10 border-2 border-background shadow-sm ring-2 ring-primary/10 transition-all group-hover:scale-105">
             <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/5 text-primary text-sm font-bold">
-              {initials(user.full_name) || "U"}
+              {initials(user.short_name) || "U"}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex flex-col">
             <p className="font-semibold text-sm flex items-center gap-2 text-foreground">
-              {user.full_name}
+              {user.short_name}
               {isMe && <Badge variant="default" className="text-[10px] h-5 px-1.5 bg-primary/90 hover:bg-primary shadow-sm">บัญชีของคุณ</Badge>}
             </p>
             <p className="text-xs text-muted-foreground truncate">{user.email}</p>

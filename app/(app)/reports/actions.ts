@@ -13,6 +13,36 @@ export type BillFormState = {
   success?: boolean
 }
 
+async function notifyStatusChange(billId: number, statusText: string) {
+  const bill = await prisma.utility_bills.findUnique({
+    where: { id: billId },
+    select: { cost_center: true, reference_no: true }
+  })
+  if (!bill || !bill.cost_center) return
+
+  const targetUsers = await prisma.users.findMany({
+    where: {
+      cost_center: bill.cost_center,
+      is_active: true
+    },
+    select: { id: true }
+  })
+
+  if (targetUsers.length > 0) {
+    await prisma.notifications.createMany({
+      data: targetUsers.map(u => ({
+        user_id: u.id,
+        title: "แจ้งผลการตรวจสอบรายงาน",
+        message: `รายงานค่าสาธารณูปโภค หมายเลขอ้างอิง ${bill.reference_no || "-"} ได้รับการปรับปรุงสถานะเป็น "${statusText}" เรียบร้อยแล้ว`,
+        type: "STATUS_CHANGE",
+        bill_id: billId,
+        created_at: new Date(),
+      }))
+    })
+  }
+}
+
+
 function parseNumber(value: FormDataEntryValue | null): number | null {
   if (value == null || value === "") return null
   const n = Number.parseFloat(String(value))
@@ -114,7 +144,7 @@ export async function createBillAction(_prev: BillFormState, formData: FormData)
 
   if (proxy_agency) {
     const validAgency = await prisma.users.findFirst({
-      where: { full_name: proxy_agency }
+      where: { short_name: proxy_agency }
     })
     if (!validAgency) {
       return { error: "พิมพ์ชื่อหน่วยงานที่ฝากเบิกไม่ถูกต้อง" }
@@ -240,6 +270,14 @@ export async function updateBillStatusAction(prev: BillFormState, formData: Form
         updated_at: new Date()
       }
     })
+
+    let statusText = status
+    if (status === "APPROVED") statusText = "อนุมัติรายการ"
+    if (status === "RETURNED") statusText = "ส่งกลับเพื่อดำเนินการแก้ไข"
+    if (status === "REJECTED") statusText = "ไม่อนุมัติรายการ"
+
+    await notifyStatusChange(id, statusText)
+
   } catch (err) {
     console.error("[v0] Update bill status error:", err)
     return { error: "ไม่สามารถอัปเดตสถานะรายการได้" }

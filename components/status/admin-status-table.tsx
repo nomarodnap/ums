@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { formatTHB, toBuddhistYear, THAI_MONTHS } from "@/lib/format"
 import type { UtilityBill, UtilityType } from "@/lib/db"
-import { Inbox, CheckCircle2, FileText } from "lucide-react"
-import Link from "next/link"
+import { Inbox, CheckCircle2, FileText, Search } from "lucide-react"
+import { ReviewBillDialog } from "./review-bill-dialog"
 
 export function AdminStatusTable({ bills, types }: { bills: UtilityBill[]; types: UtilityType[] }) {
   if (bills.length === 0) {
@@ -80,11 +80,12 @@ export function AdminStatusTable({ bills, types }: { bills: UtilityBill[]; types
                   )}
                 </TableCell>
                 <TableCell className="text-center">
-                  <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50" asChild>
-                    <Link href={`/status/${b.id}`} target="_blank" rel="noopener noreferrer">
+                  <ReviewBillDialog bill={b} types={types}>
+                    <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
+                      <Search className="w-3.5 h-3.5 mr-1.5" />
                       ตรวจข้อมูล
-                    </Link>
-                  </Button>
+                    </Button>
+                  </ReviewBillDialog>
                 </TableCell>
               </TableRow>
             ))}

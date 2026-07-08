@@ -9,8 +9,9 @@ import type { UtilityBill, UtilityType } from "@/lib/db"
 import type { UserRole } from "@/lib/db"
 import { Inbox, Send, FileEdit, CheckCircle2, XCircle, Clock } from "lucide-react"
 import Link from "next/link"
+import { BillFormDialog } from "./bill-form-dialog"
 
-export function BillsTable({ bills, role, types }: { bills: UtilityBill[]; role: UserRole; types: UtilityType[] }) {
+export function BillsTable({ bills, role, types, agencyUsers, userFullName }: { bills: UtilityBill[]; role: UserRole; types: UtilityType[]; agencyUsers: any[]; userFullName: string }) {
   const canDelete = role === "ADMIN" || role === "STAFF"
 
   if (bills.length === 0) {
@@ -19,7 +20,7 @@ export function BillsTable({ bills, role, types }: { bills: UtilityBill[]; role:
         <EmptyHeader>
           <Inbox className="w-8 h-8 text-muted-foreground" aria-hidden />
           <EmptyTitle>ไม่พบรายการ</EmptyTitle>
-          <EmptyDescription>ลองปรับเปลี่ยนตัวกรอง หรือเพิ่มรายการใหม่</EmptyDescription>
+          <EmptyDescription>ลองปรับเปลี่ยนตัวกรองเพื่อค้นหา</EmptyDescription>
         </EmptyHeader>
       </Empty>
     )
@@ -57,42 +58,39 @@ export function BillsTable({ bills, role, types }: { bills: UtilityBill[]; role:
                 <TableCell className="text-right font-medium tabular-nums">{formatTHB(b.amount)}</TableCell>
                 {canDelete && (
                   <TableCell className="text-center">
-                    {b.status === "APPROVED" ? (
-                      <Button variant="outline" size="sm" className="text-emerald-600 dark:text-emerald-500" asChild>
-                        <Link href={`/reports/new?id=${b.id}`}>
+                    <BillFormDialog 
+                      initialData={b} 
+                      userFullName={userFullName} 
+                      userRole={role} 
+                      agencyUsers={agencyUsers}
+                    >
+                      {b.status === "APPROVED" ? (
+                        <Button variant="outline" size="sm" className="text-emerald-600 dark:text-emerald-500">
                           <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
                           อนุมัติแล้ว
-                        </Link>
-                      </Button>
-                    ) : b.status === "REJECTED" ? (
-                        <Button variant="outline" size="sm" className="text-red-600 dark:text-red-500" asChild>
-                          <Link href={`/reports/new?id=${b.id}`}>
-                            <XCircle className="w-3.5 h-3.5 mr-1.5" />
-                            ไม่อนุมัติ
-                          </Link>
+                        </Button>
+                      ) : b.status === "REJECTED" ? (
+                        <Button variant="outline" size="sm" className="text-red-600 dark:text-red-500">
+                          <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                          ไม่อนุมัติ
                         </Button>
                       ) : b.status === "RETURNED" ? (
-                        <Button variant="outline" size="sm" className="text-amber-600 dark:text-amber-500" asChild>
-                          <Link href={`/reports/new?id=${b.id}`}>
-                            <FileEdit className="w-3.5 h-3.5 mr-1.5" />
-                            แก้ไขข้อมูล
-                          </Link>
+                        <Button variant="outline" size="sm" className="text-amber-600 dark:text-amber-500">
+                          <FileEdit className="w-3.5 h-3.5 mr-1.5" />
+                          แก้ไขข้อมูล
                         </Button>
                       ) : b.status === "SUBMITTED" ? (
-                        <Button variant="outline" size="sm" className="text-blue-600 dark:text-blue-500" asChild>
-                          <Link href={`/reports/new?id=${b.id}`}>
-                            <Clock className="w-3.5 h-3.5 mr-1.5" />
-                            รอตรวจสอบ
-                          </Link>
+                        <Button variant="outline" size="sm" className="text-blue-600 dark:text-blue-500">
+                          <Clock className="w-3.5 h-3.5 mr-1.5" />
+                          รอตรวจสอบ
                         </Button>
                       ) : (
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href={`/reports/new?id=${b.id}`}>
-                            <Send className="w-3.5 h-3.5 mr-1.5" />
-                            ส่งข้อมูล
-                          </Link>
+                        <Button variant="outline" size="sm">
+                          <Send className="w-3.5 h-3.5 mr-1.5" />
+                          ส่งข้อมูล
                         </Button>
                       )}
+                    </BillFormDialog>
                   </TableCell>
                 )}
               </TableRow>

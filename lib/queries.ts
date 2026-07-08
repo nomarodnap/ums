@@ -23,10 +23,10 @@ export async function getAgencyUsers() {
   const users = await prisma.users.findMany({
     select: {
       id: true,
-      full_name: true,
+      short_name: true,
       department: true
     },
-    orderBy: { full_name: 'asc' }
+    orderBy: { short_name: 'asc' }
   })
   return users
 }
@@ -304,8 +304,8 @@ function mapBill(b: any): UtilityBill {
     direct_pay_file_url: b.direct_pay_file_url,
     ktb_file_url: b.ktb_file_url,
     reject_reason: b.reject_reason,
-    creator_name: b.creator?.full_name,
-    approver_name: b.approver?.full_name,
+    creator_name: b.creator?.short_name,
+    approver_name: b.approver?.short_name,
   }
 }
 
@@ -412,13 +412,13 @@ export async function getAllUsers(): Promise<User[]> {
   const users = await prisma.users.findMany({
     orderBy: [
       { role: 'asc' },
-      { full_name: 'asc' }
+      { short_name: 'asc' }
     ]
   })
   return users.map(u => ({
     id: u.id,
     email: u.email,
-    full_name: u.full_name,
+    short_name: u.short_name,
     department: u.department,
     cost_center: u.cost_center,
     role: u.role as UserRole,
@@ -476,9 +476,9 @@ export async function getMonthlyReportStatuses(year: number): Promise<MonthlyRep
         status: bill ? (bill.status as BillStatus) : null,
         amount: bill ? bill.amount.toString() : null,
         created_by: bill ? bill.created_by : null,
-        creator_name: bill?.creator?.full_name || null,
+        creator_name: bill?.creator?.short_name || null,
         approved_by: bill ? bill.approved_by : null,
-        approver_name: bill?.approver?.full_name || null,
+        approver_name: bill?.approver?.short_name || null,
         approved_at: bill?.approved_at?.toISOString() || null,
         created_at: bill?.created_at?.toISOString() || null
       })

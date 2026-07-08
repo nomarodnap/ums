@@ -1,6 +1,7 @@
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
+import { NotificationBell } from "@/components/notification-bell"
 
 export function AppHeader({
   crumbs,
@@ -32,7 +33,10 @@ export function AppHeader({
           })}
         </BreadcrumbList>
       </Breadcrumb>
-      {action && <div className="ml-auto flex items-center gap-2">{action}</div>}
+      <div className="ml-auto flex items-center gap-2">
+        {action}
+        <NotificationBell />
+      </div>
     </header>
   )
 }

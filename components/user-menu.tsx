@@ -16,7 +16,7 @@ import type { User } from "@/lib/db"
 import { roleLabel } from "@/lib/format"
 
 export function UserMenu({ user }: { user: User }) {
-  const initials = user.full_name
+  const initials = user.short_name
     .split(" ")
     .map((n) => n[0])
     .filter(Boolean)
@@ -39,7 +39,7 @@ export function UserMenu({ user }: { user: User }) {
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.full_name}</span>
+                <span className="truncate font-medium">{user.short_name}</span>
                 <span className="truncate text-xs text-sidebar-foreground/70">{roleLabel(user.role)}</span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" aria-hidden />
@@ -49,7 +49,7 @@ export function UserMenu({ user }: { user: User }) {
             <DropdownMenuLabel className="flex items-center gap-2">
               <UserCircle className="w-4 h-4" aria-hidden />
               <div className="leading-tight">
-                <p className="text-sm font-medium">{user.full_name}</p>
+                <p className="text-sm font-medium">{user.short_name}</p>
                 <p className="text-xs text-muted-foreground truncate">{user.email}</p>
               </div>
             </DropdownMenuLabel>

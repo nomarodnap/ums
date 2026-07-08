@@ -16,7 +16,7 @@ export async function createUserAction(_prev: UserFormState, formData: FormData)
   }
 
   const email = String(formData.get("email") || "").trim().toLowerCase()
-  const fullName = String(formData.get("full_name") || "").trim()
+  const fullName = String(formData.get("short_name") || "").trim()
   const department = String(formData.get("department") || "").trim() || ""
   const costCenter = String(formData.get("cost_center") || "").trim() || null
   const role = String(formData.get("role") || "USER")
@@ -39,7 +39,7 @@ export async function createUserAction(_prev: UserFormState, formData: FormData)
     const user = await prisma.users.create({
       data: {
         email,
-        full_name: fullName,
+        short_name: fullName,
         department,
         cost_center: costCenter,
         role,

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 
 type AgencyUser = {
   id: number
-  full_name: string
+  short_name: string
   department: string
 }
 
@@ -21,7 +21,7 @@ interface AgencyComboboxProps {
 export function AgencyCombobox({ name, defaultValue, users }: AgencyComboboxProps) {
   const [value, setValue] = React.useState(defaultValue || "")
   const [isValid, setIsValid] = React.useState<boolean | null>(
-    defaultValue ? users.some(u => u.full_name === defaultValue) : null
+    defaultValue ? users.some(u => u.short_name === defaultValue) : null
   )
 
   const checkValidation = (val: string) => {
@@ -29,7 +29,7 @@ export function AgencyCombobox({ name, defaultValue, users }: AgencyComboboxProp
       setIsValid(null)
       return
     }
-    const found = users.some(u => u.full_name === val)
+    const found = users.some(u => u.short_name === val)
     setIsValid(found)
   }
 
@@ -45,7 +45,7 @@ export function AgencyCombobox({ name, defaultValue, users }: AgencyComboboxProp
       return
     }
     // Automatically validate if they select from dropdown or type exactly
-    const found = users.some(u => u.full_name === val)
+    const found = users.some(u => u.short_name === val)
     if (found) {
       setIsValid(true)
     } else {
@@ -67,7 +67,7 @@ export function AgencyCombobox({ name, defaultValue, users }: AgencyComboboxProp
         />
         <datalist id="agency-users-list">
           {users.map((user) => (
-            <option key={user.id} value={user.full_name}>
+            <option key={user.id} value={user.short_name}>
               {user.department}
             </option>
           ))}

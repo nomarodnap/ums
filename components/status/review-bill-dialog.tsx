@@ -1,30 +1,24 @@
-import { redirect } from "next/navigation"
-import { AppHeader } from "@/components/app-header"
-import { requireUser } from "@/lib/auth"
-import { getBillById, getUtilityTypes } from "@/lib/queries"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+"use client"
+
+import { useState } from "react"
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatTHB, toBuddhistYear, THAI_MONTHS } from "@/lib/format"
 import { ReviewActions } from "./review-actions"
-import { CheckCircle2, FileText, User, Calendar, File, Building2, Wallet, FileDigit, Link as LinkIcon, Download } from "lucide-react"
-import Link from "next/link"
+import { CheckCircle2, FileText, Calendar, File, Building2, Link as LinkIcon, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import type { UtilityBill, UtilityType } from "@/lib/db"
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
-  return { title: "ตรวจสอบรายละเอียดรายงาน" }
-}
-
-export default async function AdminReviewPage({ params }: { params: Promise<{ id: string }> }) {
-  const p = await params
-  const user = await requireUser()
-  if (user.role !== "ADMIN") redirect("/dashboard")
-
-  const billId = parseInt(p.id)
-  if (isNaN(billId)) redirect("/status")
-
-  const bill = await getBillById(billId)
-  if (!bill) redirect("/status")
-
-  const types = await getUtilityTypes()
+export function ReviewBillDialog({ 
+  children, 
+  bill,
+  types
+}: { 
+  children: React.ReactNode
+  bill: UtilityBill
+  types: UtilityType[]
+}) {
+  const [open, setOpen] = useState(false)
   
   // Reported data
   const monthName = bill.billing_month ? THAI_MONTHS[bill.billing_month - 1] : "-"
@@ -42,18 +36,14 @@ export default async function AdminReviewPage({ params }: { params: Promise<{ id
   const formatDate = (d?: string | null) => d ? new Date(d).toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" }) : "-"
 
   return (
-    <>
-      <AppHeader
-        crumbs={[
-          { label: "ระบบตรวจสอบรายงาน", href: "/status" },
-          { label: "ตรวจสอบรายละเอียด" },
-        ]}
-      />
-      
-      <div className="flex flex-col gap-5 p-4 md:p-6 max-w-4xl mx-auto w-full">
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {children}
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 sm:rounded-2xl border-none">
+        <div className="p-6 pb-2 sticky top-0 bg-background/95 backdrop-blur z-10 border-b">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-semibold flex items-center gap-2">
               รายละเอียดรายการเบิกจ่าย
               {bill.status === "APPROVED" && (
                 <span className="inline-flex items-center text-sm font-medium text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
@@ -75,52 +65,54 @@ export default async function AdminReviewPage({ params }: { params: Promise<{ id
                   <FileText className="w-4 h-4 mr-1" /> ไม่อนุมัติ
                 </span>
               )}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            </DialogTitle>
+            <DialogDescription>
               ข้อมูลที่ผู้ใช้งานส่งเข้ามาเพื่อขออนุมัติเบิกจ่าย
-            </p>
-          </div>
-          
-          <ReviewActions billId={bill.id} status={bill.status} />
+            </DialogDescription>
+          </DialogHeader>
         </div>
-
-        {bill.status === "APPROVED" && (
-          <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
-            <div>
-              <p className="font-semibold text-emerald-900">รายการนี้ได้รับการอนุมัติเรียบร้อยแล้ว</p>
-              <p className="text-sm text-emerald-700 mt-1">
-                อนุมัติโดย: <span className="font-medium">{bill.approver_name || "แอดมิน"}</span> เมื่อวันที่ {bill.approved_at ? new Date(bill.approved_at).toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "-"}
-              </p>
-            </div>
+        
+        <div className="p-4 sm:p-6 pt-4 flex flex-col gap-5">
+          <div className="flex flex-col md:flex-row md:items-start justify-end gap-4">
+            <ReviewActions billId={bill.id} status={bill.status} onSuccess={() => setOpen(false)} />
           </div>
-        )}
 
-        {bill.status === "RETURNED" && (
-          <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-3">
-            <FileText className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-            <div>
-              <p className="font-semibold text-amber-900">รายการนี้ถูกส่งกลับเพื่อแก้ไข</p>
-              <p className="text-sm text-amber-700 mt-1">
-                <strong>เหตุผล:</strong> {bill.reject_reason || "-"}
-              </p>
+          {bill.status === "APPROVED" && (
+            <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-semibold text-emerald-900">รายการนี้ได้รับการอนุมัติเรียบร้อยแล้ว</p>
+                <p className="text-sm text-emerald-700 mt-1">
+                  อนุมัติโดย: <span className="font-medium">{bill.approver_name || "แอดมิน"}</span> เมื่อวันที่ {bill.approved_at ? new Date(bill.approved_at).toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "-"}
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {bill.status === "REJECTED" && (
-          <div className="p-4 rounded-lg bg-red-50 border border-red-200 flex items-start gap-3">
-            <FileText className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
-            <div>
-              <p className="font-semibold text-red-900">รายการนี้ไม่อนุมัติ</p>
-              <p className="text-sm text-red-700 mt-1">
-                <strong>เหตุผล:</strong> {bill.reject_reason || "-"}
-              </p>
+          {bill.status === "RETURNED" && (
+            <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-3">
+              <FileText className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-semibold text-amber-900">รายการนี้ถูกส่งกลับเพื่อแก้ไข</p>
+                <p className="text-sm text-amber-700 mt-1">
+                  <strong>เหตุผล:</strong> {bill.reject_reason || "-"}
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="flex flex-col gap-5">
+          {bill.status === "REJECTED" && (
+            <div className="p-4 rounded-lg bg-red-50 border border-red-200 flex items-start gap-3">
+              <FileText className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-semibold text-red-900">รายการนี้ไม่อนุมัติ</p>
+                <p className="text-sm text-red-700 mt-1">
+                  <strong>เหตุผล:</strong> {bill.reject_reason || "-"}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* 1. ข้อมูลเอกสารทั่วไป */}
           <Card className="shadow-sm border-primary/20">
             <CardHeader className="bg-primary/5 pb-4 border-b border-primary/10">
@@ -283,8 +275,8 @@ export default async function AdminReviewPage({ params }: { params: Promise<{ id
             </Card>
           )}
         </div>
-      </div>
-    </>
+      </DialogContent>
+    </Dialog>
   )
 }
 

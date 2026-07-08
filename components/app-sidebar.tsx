@@ -86,7 +86,7 @@ export function AppSidebar({ user }: { user: User }) {
         <div className="px-2 py-2 group-data-[collapsible=icon]:hidden">
           <div className="rounded-md bg-sidebar-accent/60 border border-sidebar-border p-3">
             <p className="text-xs text-sidebar-foreground/70">เข้าสู่ระบบในนาม</p>
-            <p className="text-sm font-medium text-sidebar-foreground truncate">{user.full_name}</p>
+            <p className="text-sm font-medium text-sidebar-foreground truncate">{user.short_name}</p>
             <p className="text-xs text-sidebar-foreground/70 truncate">{roleLabel(user.role)}</p>
           </div>
         </div>
